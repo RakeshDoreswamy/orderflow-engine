@@ -1,0 +1,14 @@
+{
+ "days": 249,
+ "opened_outside": 168,
+ "accepted": 41,
+ "successes": 8,
+ "rate": 0.1951219512195122,
+ "ci95": [
+  0.1023431574920593,
+  0.34013882352556724
+ ],
+ "claimed": 0.8,
+ "claimed_inside_ci": false,
+ "small_sample": false
+}

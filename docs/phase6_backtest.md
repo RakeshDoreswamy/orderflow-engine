@@ -1,0 +1,10 @@
+| set | setup | trades | win_rate | mean_gross | mean_cost | mean_net | net_ci95 | net_total | max_dd | note |
+|---|---|---|---|---|---|---|---|---|---|---|
+| calibration (6 days, seed 800) | ALL | 28 | 0.11 | 33.6 | 82.4 | -48.8 | -88.1 to -0.3 | -1366 | 1509 | small sample |
+| calibration (6 days, seed 800) | absorption_reversal | 17 | 0.00 | -2.4 | 82.5 | -84.8 | -107.5 to -60.1 | -1442 | 1310 | small sample |
+| calibration (6 days, seed 800) | exhaustion_fade | 8 | 0.00 | -0.6 | 82.0 | -82.6 | -120.7 to -44.3 | -661 | 528 | small sample |
+| calibration (6 days, seed 800) | trapped_reversal | 3 | 1.00 | 328.3 | 82.6 | 245.7 | 62.5 to 402.0 | 737 | 0 | small sample |
+| held-out (30 days, seed 9500) | ALL | 136 | 0.13 | 43.1 | 82.5 | -39.3 | -57.1 to -18.6 | -5351 | 5594 |  |
+| held-out (30 days, seed 9500) | absorption_reversal | 91 | 0.03 | 17.1 | 82.5 | -65.4 | -75.7 to -55.6 | -5952 | 5833 |  |
+| held-out (30 days, seed 9500) | exhaustion_fade | 25 | 0.00 | -13.6 | 82.2 | -95.8 | -113.3 to -78.1 | -2396 | 2264 | small sample |
+| held-out (30 days, seed 9500) | trapped_reversal | 20 | 0.75 | 232.5 | 82.7 | 149.8 | 65.1 to 219.3 | 2997 | 324 | small sample |

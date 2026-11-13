@@ -241,3 +241,35 @@ recorder:
   book_levels: 5
   gap_alert_s: 30             # in-session silence longer than this is logged as a gap
   schema_version: 1
+
+# ---- Phase 6: setups, backtest, rule harnesses -----------------------------------------------------------
+backtest:
+  product: intraday
+  qty: 100                    # shares per trade (fixed; no compounding)
+  bar_freq: "1min"
+  max_hold_min: 45
+  flat_before_close_min: 10   # force-exit this many minutes before the session close
+  both_hit_rule: stop         # stop and target inside one bar: assume the STOP was hit first (conservative)
+  bootstrap_n: 2000
+  bootstrap_seed: 11
+
+setups:
+  stop_lookback_min: 10       # stop beyond the extreme of this many prior minutes
+  stop_buffer_ticks: 2
+  min_risk_ticks: 8
+  target_r: 1.5
+  cooldown_min: 5             # ignore new signals this long after a signal of the same setup
+  eval_calibration_seed_base: 800
+  eval_heldout_seed_base: 9500
+  n_calibration_days: 6
+  n_heldout_days: 30
+
+rules:
+  value_area_pct: 0.70
+  profile_row_ticks: 1
+  period_freq: "30min"        # acceptance is judged on closes of bars of this length
+  accept_periods: 2           # consecutive period closes inside the prior value area = "accepted"
+  open_outside_ticks: 1       # open must be at least this far outside the prior value area
+  claimed_probability: 0.80
+  toy_gap_pct: 0.4            # toy only: random overnight gap applied to synthetic days
+  gap_buckets_pct: [0.0, 0.2, 0.5, 1.0]

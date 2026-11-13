@@ -67,7 +67,7 @@ Open `docs/index.html` for the study page (concepts 1-27, each with definition, 
 
 ## Roadmap
 3 book + events (done) | 4 EOD providers + swingflow (done) |
-5 live recorder core (done; broker adapter not written) | 6 setups + backtest | 7 ICT bridge, Pine, Actions | 8 learning site.
+5 live recorder core (done; broker adapter not written) | 6 setups + backtest (done, synthetic only) | 7 ICT bridge, Pine, Actions | 8 learning site.
 
 ## Setup
 ```
@@ -164,3 +164,65 @@ tested to be the previous message's quote.
 - The demo's classifier accuracy on recorded quotes (quote rule 99.99%) is an artifact of the toy: its book snapshots are never
   stale, whereas the generator's own tick quotes are stale 15% of the time (99.3%). Do not read it as evidence about real feeds.
 - Never run against real data yet, so real-feed behaviour (reconnects, bad timestamps, pre-open ticks) is untested.
+
+## Phase 6 results: setups, backtest with costs, controls, rule harnesses (all SYNTHETIC)
+
+**Engine** (`orderflow/backtest/`). Bar-level, one position at a time, 100 shares, no compounding. A signal carries the
+time it became known and fills at the OPEN of the next 1-minute bar plus 1 tick of adverse slippage; if stop and target
+sit inside one bar the stop is assumed first; time exits are forced before the close. Costs (brokerage, STT, exchange,
+SEBI, GST, stamp) hit every trade. **The cost rates in `config.yaml` are from memory; check them against your contract
+note.** At 100 shares of a Rs 1000 stock a round trip costs about Rs 82, which is roughly 16 ticks of price movement
+(Rs 5 per tick), so a setup must make that much gross per trade just to break even.
+
+**Controls (does the engine itself behave?).** A driftless random walk with random signals must lose about the costs, and
+a planted drift must show up:
+
+| control | trades | mean_gross | mean_cost | mean_net | net_ci95 |
+|---|---|---|---|---|---|
+| negative control (no edge) | 188 | -12.5 | 82.4 | -94.9 | -118.8 to -72.3 |
+| positive control (planted drift 3 ticks/min x 15 min) | 211 | 176.8 | 82.6 | 94.2 | 80.0 to 106.3 |
+
+**Setups** (`orderflow/backtest/setups.py`): `absorption_reversal`, `exhaustion_fade`, `trapped_reversal`. Parameters
+were fixed from the rules' definitions before any run (nothing was tuned on the calibration days, which are shown only as
+a sanity check). Held-out = 30 synthetic days, run once:
+
+| set | setup | trades | win_rate | mean_gross | mean_cost | mean_net | net_ci95 | net_total | max_dd | note |
+|---|---|---|---|---|---|---|---|---|---|---|
+| calibration (6 days, seed 800) | ALL | 28 | 0.11 | 33.6 | 82.4 | -48.8 | -88.1 to -0.3 | -1366 | 1509 | small sample |
+| calibration (6 days, seed 800) | absorption_reversal | 17 | 0.00 | -2.4 | 82.5 | -84.8 | -107.5 to -60.1 | -1442 | 1310 | small sample |
+| calibration (6 days, seed 800) | exhaustion_fade | 8 | 0.00 | -0.6 | 82.0 | -82.6 | -120.7 to -44.3 | -661 | 528 | small sample |
+| calibration (6 days, seed 800) | trapped_reversal | 3 | 1.00 | 328.3 | 82.6 | 245.7 | 62.5 to 402.0 | 737 | 0 | small sample |
+| held-out (30 days, seed 9500) | ALL | 136 | 0.13 | 43.1 | 82.5 | -39.3 | -57.1 to -18.6 | -5351 | 5594 |  |
+| held-out (30 days, seed 9500) | absorption_reversal | 91 | 0.03 | 17.1 | 82.5 | -65.4 | -75.7 to -55.6 | -5952 | 5833 |  |
+| held-out (30 days, seed 9500) | exhaustion_fade | 25 | 0.00 | -13.6 | 82.2 | -95.8 | -113.3 to -78.1 | -2396 | 2264 | small sample |
+| held-out (30 days, seed 9500) | trapped_reversal | 20 | 0.75 | 232.5 | 82.7 | 149.8 | 65.1 to 219.3 | 2997 | 324 | small sample |
+
+**How to read this honestly.**
+- The generator and the setups share one author's assumptions. `trapped_reversal` is profitable here because the generator's
+  planted trap event contains a reversal, so it wins by construction. `absorption_reversal` and `exhaustion_fade` lose because
+  the generator pins price during absorption and then walks randomly, so there is nothing to follow. None of this is evidence
+  about NSE.
+- 91 / 25 / 20 trades per setup is a small sample; anything marked "small sample" has a wide interval. No profit claim is made.
+- Across all setups the held-out net is negative with a confidence interval below zero: costs beat the gross edge.
+
+**80% rule harness** (`orderflow/rules.py`, exact definition in its docstring). On 250 toy days with random overnight gaps
+(the base generator has none, so a Gaussian gap is added), the market opened outside the prior value area on
+168 days, was accepted back inside on 41, and traversed to the other side on 8:
+**20% (95% CI 10% to 34%)** against the claimed 80%. A random-walk toy day is not expected to
+obey the rule; this shows the harness reports what it measures instead of confirming the folklore. It needs real recorded
+days (Phase 5) to say anything about NSE, and results depend on how acceptance is defined.
+
+**Gap fill harness** on 20 toy EOD series (random-walk gaps, so small gaps fill often and large gaps rarely):
+
+| abs_gap_pct | direction | gaps | filled | fill_rate | ci95 |
+|---|---|---|---|---|---|
+| [0.0, 0.2) | down | 3220 | 2967 | 0.92 | 0.91-0.93 |
+| [0.0, 0.2) | up | 3118 | 2886 | 0.93 | 0.92-0.93 |
+| [0.2, 0.5) | down | 2239 | 1722 | 0.77 | 0.75-0.79 |
+| [0.2, 0.5) | up | 2312 | 1779 | 0.77 | 0.75-0.79 |
+| [0.5, 1.0) | down | 517 | 290 | 0.56 | 0.52-0.60 |
+| [0.5, 1.0) | up | 549 | 315 | 0.57 | 0.53-0.61 |
+| [1.0, inf) | down | 5 | 0 | 0.00 | -0.00-0.43 |
+| [1.0, inf) | up | 3 | 0 | 0.00 | 0.00-0.56 |
+
+Raw numbers: `docs/phase6_*.csv`, held-out trades in `docs/phase6_heldout_trades.csv`.
