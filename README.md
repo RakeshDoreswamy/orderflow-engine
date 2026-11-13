@@ -3,7 +3,7 @@
 Order flow taught from first principles and applied to real NSE India trades. Sits beside
 [`ict-swing-engine`](https://github.com/RakeshDoreswamy/ict-swing-engine) and is meant to confirm or reject its entries.
 
-> **Status: Phase 1 of 8 done.** Everything below is what exists today. Nothing here has been
+> **Status: Phases 1 and 2 of 8 done.** Everything below is what exists today. Nothing here has been
 > tested on real NSE data yet, and no trading results exist yet.
 
 ## Ground rules
@@ -40,8 +40,33 @@ must be measured on real recorded data (Phase 5). These numbers only show the ma
 ### Not generated yet
 Iceberg refills, exhaustion and pulled spoofs need an order book (Phase 3).
 
+## Phase 2 (done): delta/CVD, footprint analytics, profile/TPO, VWAP
+| module | what it does |
+|---|---|
+| `orderflow/delta.py` | delta, delta %, intrabar max/min, delta at high/low, session and anchored CVD, confirmed swings, CVD divergences (stamped at the confirming bar), delta flips, delta without progress, OHLCV delta estimate |
+| `orderflow/footprint.py` | per-bar POC and value area, diagonal and stacked imbalances, finished/unfinished extremes, zero rows |
+| `orderflow/profile.py` | volume profile (session / composite / fixed range), value area by expansion, HVN/LVN, shape classifier (P, b, D, thin, double), naked POCs |
+| `orderflow/tpo.py` | TPO letters, initial balance, extensions, single prints, poor/excess extremes, open-type heuristic |
+| `orderflow/vwap.py` | session and anchored VWAP with sigma bands |
+| `orderflow/viz/concepts.py` | one generated visual per concept 1-23 (`python scripts/build_gallery.py`) |
+
+Open `docs/index.html` for the study page (concepts 1-23, each with definition, why it matters, how to read it, common mistakes and a generated visual). Rebuild with `python scripts/build_gallery.py && python scripts/build_site.py`.
+
+### Measured on synthetic data (toy generator; nothing here is evidence about real NSE behaviour)
+- CVD divergences found on the seed-42 day: 6 (4 bearish, 2 bullish). Predictive value is untested.
+- OHLCV delta estimate vs true bar delta: correlation 0.98 (inflated by a few huge bars) but same sign in only 75% of 75 bars.
+- Quote rule accuracy falls from 100% to 98.0% as the share of stale quotes goes 0% to 50%; the tick rule stays at 93.6%.
+- Finished highs/lows are rare in the toy model (1.0% / 1.7% of 600 bars, only inside one-sided bursts).
+- Open types on 8 synthetic days: {'open_auction': 8}. The toy market has no opening structure; the rules are verified on hand-built paths in the unit tests.
+
+### Known limits / not done
+- Concepts 16 (absorption) and 17 (trapped traders) are visualised on generator-labelled events; the detectors are Phase 3.
+- The 80% value-area rule and gap-fill tendencies are listed as hypotheses; their test harness is Phase 6.
+- Golden-image tests for charts are not written yet (smoke tests check each chart renders).
+- One study page with 23 concept sections; the planned 41 separate pages come in Phase 8.
+
 ## Roadmap
-2 delta/CVD, footprint analytics, profile/TPO, VWAP | 3 book + events | 4 EOD providers + swingflow |
+3 book + events | 4 EOD providers + swingflow |
 5 live recorder | 6 setups + backtest | 7 ICT bridge, Pine, Actions | 8 learning site.
 
 ## Setup

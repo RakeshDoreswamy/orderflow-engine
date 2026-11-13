@@ -1,0 +1,121 @@
+{
+ "01_auction": {
+  "mean_abs_delta_pct": 0.1627824222002462
+ },
+ "02_order_book": {},
+ "03_limit_vs_market": {},
+ "04_aggressor_side": {},
+ "05_slippage": {},
+ "06_tape": {
+  "large_print_threshold": 365.34999999999854
+ },
+ "07_classifiers": {
+  "accuracy_vol": {
+   "tick_rule": 0.9360505420876309,
+   "quote_rule": 0.9946820016354956,
+   "lee_ready": 0.9952575905457807
+  },
+  "stale_sens": {
+   "tick_rule": {
+    "0.0": 0.9360505420876309,
+    "0.15": 0.9360505420876309,
+    "0.3": 0.9360505420876309,
+    "0.5": 0.9360505420876309
+   },
+   "quote_rule": {
+    "0.0": 1.0,
+    "0.15": 0.9946820016354956,
+    "0.3": 0.9877416972222955,
+    "0.5": 0.979935635337255
+   },
+   "lee_ready": {
+    "0.0": 1.0,
+    "0.15": 0.9952575905457807,
+    "0.3": 0.9884797805270517,
+    "0.5": 0.9815500276979081
+   }
+  }
+ },
+ "08_ohlcv_estimate": {
+  "corr": 0.9750250949830201,
+  "sign_agreement": 0.7466666666666667,
+  "n_bars": 75
+ },
+ "09_delta_bars": {},
+ "10_cvd_divergence": {
+  "divergences": 6,
+  "bearish": 4,
+  "bullish": 2
+ },
+ "11_flip_no_progress": {
+  "flips": 2,
+  "no_progress": 6
+ },
+ "12_footprint_modes": {},
+ "13_poc_value_area": {},
+ "14_imbalances": {
+  "stacked_rows_shown": 21
+ },
+ "15_finished_unfinished": {
+  "bars": 600,
+  "finished_high_share": 0.01,
+  "finished_low_share": 0.016666666666666666,
+  "days": 8
+ },
+ "16_absorption": {
+  "sold": 126540,
+  "bought": 19027,
+  "range_ticks": 0.9999999999990905
+ },
+ "17_trapped": {
+  "sold_at_low": 57507,
+  "recovery_ticks": 169.0000000000009
+ },
+ "18_volume_profile": {
+  "poc": 1012.5,
+  "vah": 1013.5,
+  "val": 1008.5,
+  "va_share": 0.7097681289403571,
+  "hvn": 1,
+  "lvn": 4
+ },
+ "19_profile_shapes": {
+  "labels": {
+   "D (balance)": "D",
+   "P (short-covering)": "P",
+   "b (long-liquidation)": "b",
+   "double distribution": "double",
+   "thin / trend": "thin"
+  }
+ },
+ "20_tpo": {
+  "ibh": 1011.5,
+  "ibl": 1000.0,
+  "extensions": [
+   [
+    "C",
+    "up"
+   ]
+  ],
+  "poor_high": true,
+  "poor_low": false,
+  "excess_high": false,
+  "excess_low": true,
+  "single_print_runs": 1,
+  "letters": 13
+ },
+ "21_composite_naked": {
+  "days": 8,
+  "naked": 2,
+  "composite_poc": 1005.0
+ },
+ "22_open_types": {
+  "synthetic_counts": {
+   "open_auction": 8
+  },
+  "n_days": 8
+ },
+ "23_vwap": {
+  "close_vs_vwap": 2.20961763697278
+ }
+}

@@ -26,6 +26,10 @@ class Config:
     def __getitem__(self, key: str) -> Any:
         return getattr(self, key)
 
+    def with_overrides(self, overrides: dict) -> "Config":
+        """New Config with ``overrides`` deep-merged (the original is untouched)."""
+        return Config(_merge(self._d, overrides))
+
     def to_dict(self) -> dict[str, Any]:
         return copy.deepcopy(self._d)
 

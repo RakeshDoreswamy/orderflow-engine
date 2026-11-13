@@ -161,3 +161,26 @@ def generate_day(cfg: Config | None = None, symbol: str = "SYNTH", date: str = "
                    "price_lo": float(sel["price"].min()) if len(sel) else np.nan,
                    "price_hi": float(sel["price"].max()) if len(sel) else np.nan})
     return SyntheticDay(symbol, date, tick, df.reset_index(drop=True), pd.DataFrame(ev))
+
+
+_DAY_KINDS = ["burst_up", "burst_down", "absorption_bid", "absorption_ask", "sweep_reversal"]
+
+
+def generate_days(cfg: Config | None = None, n_days: int = 8, symbol: str = "SYNTH",
+                  first_date: str = "2026-01-05") -> list[SyntheticDay]:
+    """Several consecutive weekday sessions. Each day starts at the previous close and gets its own
+    seeded random event schedule (3 events), so composite profiles, naked POCs and open types have
+    something to vary over. Still a toy model: no claim about real markets."""
+    cfg = cfg or load_config()
+    days, price = [], cfg.synthetic.start_price
+    dates = pd.bdate_range(first_date, periods=n_days)
+    for i, d in enumerate(dates):
+        rng = np.random.default_rng(cfg.synthetic.seed * 1000 + i)
+        slots = sorted(rng.choice([30, 90, 150, 210, 270, 330], size=3, replace=False).tolist())
+        sched = [{"kind": str(rng.choice(_DAY_KINDS)), "at_min": int(m), "dur_min": int(rng.integers(6, 15))}
+                 for m in slots]
+        c = cfg.with_overrides({"synthetic": {"start_price": float(price), "schedule": sched}})
+        day = generate_day(c, symbol, d.strftime("%Y-%m-%d"), seed=cfg.synthetic.seed * 1000 + i)
+        days.append(day)
+        price = float(day.ticks["price"].iloc[-1])
+    return days
