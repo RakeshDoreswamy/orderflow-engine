@@ -3,8 +3,24 @@
 Order flow taught from first principles and applied to real NSE India trades. Sits beside
 [`ict-swing-engine`](https://github.com/RakeshDoreswamy/ict-swing-engine) and is meant to confirm or reject its entries.
 
-> **Status: Phases 1 and 2 of 8 done.** Everything below is what exists today. Nothing here has been
-> tested on real NSE data yet, and no trading results exist yet.
+> **Status: all 8 phases built. Every number below comes from synthetic or toy data. No real NSE data has been used, there is no
+> live broker adapter, and no trading edge has been shown.** The code is tested (pytest), the results are reproducible
+> (seeded; `scripts/*` regenerate every table), and each result states its sample size and what it does not prove.
+
+| phase | what exists | headline measurement (synthetic / toy) | details |
+|---|---|---|---|
+| 1 | synthetic ticks, bars, footprint, trade-side classifiers | tick rule 93.6% volume-weighted; quote rule 98-100% | [Phase 1](#phase-1-done-skeleton-synthetic-data-barsfootprint-trade-side-classification) |
+| 2 | delta, CVD, footprint analytics, profile, TPO, VWAP, 23 visuals | 6 CVD divergences on the seed-42 day (predictive value untested) | [Phase 2](#measured-on-synthetic-data-toy-generator-nothing-here-is-evidence-about-real-nse-behaviour) |
+| 3 | book analytics, 8 event detectors, evaluation harness | held-out recall 0.45-1.00, precision 0.17-1.00 over 11-174 labels per detector | [Phase 3](#phase-3-results-book-analytics-and-event-detectors-synthetic-data) |
+| 4 | EOD providers (CSV, bhavcopy), swingflow | effort detector recall 0.90, precision 0.81 (0.56 without delivery %), 240 labels | [Phase 4](#phase-4-results-eod-providers-and-swingflow) |
+| 5 | live recorder core, quality report | 17,014 messages -> 17,013 trades, exact prices/quantities on replay | [Phase 5](#phase-5-results-live-recorder-core-only-no-broker-connection) |
+| 6 | cost model, backtest engine, 3 setups, controls, 80% rule and gap-fill harnesses | null control loses the costs, planted drift is found; setups net -Rs 39/trade over 136 trades | [Phase 6](#phase-6-results-setups-backtest-with-costs-controls-rule-harnesses-all-synthetic) |
+| 7 | ICT bridge, Pine v6 indicator, GitHub Actions | bridge confirm-minus-reject +0.14 R, CI -0.24 to +0.51 on no-edge data | [Phase 7](#phase-7-results-ict-bridge-pine-indicator-github-actions) |
+| 8 | 35-page learning site, golden-image tests, this README | 36 golden-image tests, link and image checks on every page | [Phase 8](#phase-8-learning-site-golden-images-and-what-is-left) |
+
+**Read this before trusting anything.** The generators and the detectors/setups were written from one mental model, so the
+scores check consistency, not truth. The tests that matter most for honesty are the controls (a no-edge market must lose the
+costs; a planted edge must be found) and the no-lookahead prefix tests.
 
 ## Ground rules
 - No lookahead; every detector gets a prefix test.
@@ -60,14 +76,14 @@ Open `docs/index.html` for the study page (concepts 1-27, each with definition, 
 - Open types on 8 synthetic days: {'open_auction': 8}. The toy market has no opening structure; the rules are verified on hand-built paths in the unit tests.
 
 ### Known limits / not done
-- Concepts 16 (absorption) and 17 (trapped traders) are visualised on generator-labelled events; the detectors are Phase 3.
-- The 80% value-area rule and gap-fill tendencies are listed as hypotheses; their test harness is Phase 6.
-- Golden-image tests for charts are not written yet (smoke tests check each chart renders).
-- One study page with 23 concept sections; the planned 41 separate pages come in Phase 8.
+- Concepts 16 (absorption) and 17 (trapped traders) are visualised on generator-labelled events; the detectors are in Phase 3.
+- The 80% value-area rule and gap-fill tendencies have measurement harnesses (Phase 6), run on toy data only.
+- Golden-image tests now cover all 27 published charts and 8 re-rendered ones (Phase 8).
+- The study page is also split into one page per topic (Phase 8); see the Phase 8 note on the count.
 
 ## Roadmap
 3 book + events (done) | 4 EOD providers + swingflow (done) |
-5 live recorder core (done; broker adapter not written) | 6 setups + backtest (done, synthetic only) | 7 ICT bridge, Pine, Actions (done) | 8 learning site.
+5 live recorder core (done; broker adapter not written) | 6 setups + backtest (done, synthetic only) | 7 ICT bridge, Pine, Actions (done) | 8 learning site (done).
 
 ## Setup
 ```
@@ -263,3 +279,36 @@ no repaint was checked only by construction (closed-bar logic), not by replay.
 **GitHub Actions** (`.github/workflows/`): `tests.yml` (pytest on push and PR, Python 3.11), `pages.yml` (publishes `docs/` once you
 set Settings -> Pages -> Source to "GitHub Actions"), `reproduce.yml` (manual: re-runs every evaluation script and uploads
 the tables). The YAML parses, but none of the workflows has run yet.
+
+## Phase 8: learning site, golden images and what is left
+
+- `scripts/build_site.py` then `scripts/build_pages.py` build `docs/index.html` (one long page) and `docs/learn.html` plus 35 pages in
+  `docs/learn/` (one per topic, previous/next links). The last five pages cover costs, backtest controls, the 80% rule and gap fill,
+  recording and data quality, and the ICT bridge; their numbers are read from the result files or computed from config, never typed.
+  Tests check that every link and image resolves. I could not open the pages in a browser from this session, so the layout has been
+  checked only by those tests.
+- `tests/test_golden_images.py`: 27 published charts and 8 re-rendered charts are compared with stored coarse thumbnails (grayscale
+  cell means plus aspect ratio), and a flipped chart must fail. After a deliberate chart change, look at the chart and run
+  `python scripts/update_golden.py`.
+- Publishing: `.github/workflows/pages.yml` deploys `docs/` once Settings -> Pages -> Source is "GitHub Actions". The workflows have not
+  run yet.
+
+**Not done / open**
+- **The spec's list of 41 concepts is not reproduced here.** I lost the original spec text during a context reset and built from
+  my saved summary, so the site has 35 topic pages grouped by my own headings rather than the spec's A-J numbering. Paste the
+  concept list and I will map the missing pages.
+- No real NSE data anywhere. Next real steps: record live sessions (needs a broker `Feed`), run `compare_outcomes` on real ICT outcomes,
+  re-run the harnesses on recorded days.
+- Cost rates, the bhavcopy column names and the Kite-style message fields were written from memory and need checking.
+- No licence file: a public repo without one is "all rights reserved". Add one (MIT is common) if you want others to reuse it.
+- Developed on Python 3.10; the target is 3.11 and CI uses 3.11.
+
+## Reproduce everything
+```
+pip install pandas numpy pyarrow matplotlib pyyaml pytest
+pytest
+export PYTHONPATH=.
+python scripts/phase3_eval.py; python scripts/phase4_eval.py; python scripts/phase5_demo.py
+python scripts/phase6_eval.py; python scripts/phase7_eval.py
+python scripts/build_gallery.py; python scripts/build_site.py; python scripts/build_pages.py
+```

@@ -282,5 +282,8 @@ html = html.replace('<a href="#fp">Footprint demo</a>', '<a href="#fp">Footprint
 html = html.replace('<section id="coming">', "".join(S) + '<section id="coming">')
 html = html.replace("<h2>Coming next</h2><p>Phase 2: delta, CVD and divergence, footprint analytics (POC, value area, imbalances), volume profile, TPO, VWAP. Then book analytics",
                     "<h2>Coming next</h2><p>Phase 5: live recorder, live recorder, setups and backtests with honest results (including the rules of thumb above), ICT bridge, Pine indicator. Book analytics")
+import re as _re
+html = _re.sub(r'<section id="coming">.*?</section>', '<section id="coming"><h2>Status</h2><p>All eight phases are built; see the README for what each one measured, with sample sizes, and for what is still untested (no real NSE data has been used anywhere, there is no live broker adapter, and every result here comes from synthetic or toy data). <a href="learn.html">The same material is also available as one page per topic.</a></p></section>', html, flags=_re.S)
+html = html.replace("<nav><b>Phase 1</b>", '<nav><a href="learn.html"><b>One page per topic &rarr;</b></a> <b>Phase 1</b>', 1)
 (root / "docs" / "index.html").write_text(html, encoding="utf-8")
 print("wrote docs/index.html")

@@ -1,0 +1,36 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>5. Slippage and market impact (try it) | orderflow-engine</title><style>
+:root{--bg:#fafaf7;--fg:#1d1d1b;--mute:#6b6b66;--card:#fff;--line:#e3e1d8;--acc:#1d6b4f;--buy:#2e8b57;--sell:#c0392b}
+@media(prefers-color-scheme:dark){:root{--bg:#161614;--fg:#ecebe5;--mute:#9a9992;--card:#1f1f1c;--line:#34332e;--acc:#5fc79b;--buy:#5fc79b;--sell:#ef8a7d}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,Segoe UI,sans-serif}
+.wrap{display:grid;grid-template-columns:230px 1fr;max-width:1080px;margin:0 auto;gap:32px;padding:24px}
+nav{position:sticky;top:16px;align-self:start;font-size:14px}nav a{display:block;padding:4px 0;color:var(--mute);text-decoration:none}nav a:hover{color:var(--acc)}
+nav b{display:block;margin:12px 0 4px;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+h1{font-size:28px;margin:0 0 4px}h2{font-size:21px;margin:0 0 6px}h3{font-size:14px;margin:16px 0 4px;color:var(--acc);text-transform:uppercase;letter-spacing:.05em}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px 22px;margin:18px 0}
+.sub{color:var(--mute);margin:0 0 12px}.note{border-left:3px solid var(--acc);padding:6px 12px;background:rgba(29,107,79,.07);margin:12px 0;font-size:14.5px}
+.warn{border-left-color:#b9770e;background:rgba(185,119,14,.08)}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:8px 0}th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:first-child,td:first-child{text-align:left}
+code{background:rgba(127,127,127,.15);padding:1px 5px;border-radius:4px;font-size:.9em}pre{background:rgba(127,127,127,.12);padding:10px 12px;border-radius:8px;overflow:auto;font-size:13px}
+img{max-width:100%;border:1px solid var(--line);border-radius:8px}ul{margin:4px 0 4px 20px;padding:0}
+.ladder{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.lad td{text-align:center;font-variant-numeric:tabular-nums}.lad .ask{color:var(--sell)}.lad .bid{color:var(--buy)}.lad tr.hit td{background:rgba(192,57,43,.18)}.lad tr.hitb td{background:rgba(46,139,87,.18)}
+input,select,button{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg)}button{background:var(--acc);color:#fff;border:0;cursor:pointer}
+@media(max-width:800px){.wrap{grid-template-columns:1fr}nav{position:static}.ladder{grid-template-columns:1fr}}
+</style></head><body><div class="wrap"><nav><a href="../learn.html">&larr; All 35 pages</a><a href="../index.html">Single long page</a></nav><section id="a5"><h2>5. Slippage and market impact (try it)</h2>
+<p class="sub">Send a market order into an illustrative ladder (tick = ₹0.05). Bigger orders walk the book and pay more.</p>
+<div class="ladder"><div><table class="lad" id="lad"><thead><tr><th>Price</th><th>Size</th><th>Side</th></tr></thead><tbody></tbody></table></div>
+<div><p><select id="side"><option value="buy">Market BUY</option><option value="sell">Market SELL</option></select>
+<input id="qty" type="number" value="1500" min="1" step="100" style="width:100px"> shares <button id="go">Send</button></p><div id="res"></div></div></div>
+<h3>Why it matters</h3><p>Average fill price = Σ(price × size) ÷ Σ size. Slippage = average fill − the price you saw. Costs in <code>config.yaml</code> include <code>slippage_ticks</code> for exactly this.</p>
+<h3>Common mistakes</h3><ul><li>Backtesting at the last price: a market order never fills at the last price for free.</li><li>Ignoring that the book refills or thins as you trade; this ladder is static.</li></ul><h3>Generated visual</h3><img src="../img/concepts/05_slippage.png" alt="05_slippage" loading="lazy"></section><div style="display:flex;justify-content:space-between;gap:12px;margin-top:24px"><a href="a4.html">&larr; 4. Aggressor side</a><a href="b6.html">6. Time &amp; Sales (the tape) &rarr;</a></div><p class="sub" style="margin-top:28px">Synthetic or illustrative data unless a page says otherwise. Education only, not financial advice.</p></div><script>
+const book=[[100.20,1200,'a'],[100.15,800,'a'],[100.10,500,'a'],[100.05,300,'a'],[100.00,400,'b'],[99.95,600,'b'],[99.90,900,'b'],[99.85,1300,'b']];
+const tb=document.querySelector('#lad tbody');
+function draw(hit){tb.innerHTML=book.map((r,i)=>`<tr class="${hit&&hit.has(i)?(r[2]=='a'?'hit':'hitb'):''}"><td class="${r[2]=='a'?'ask':'bid'}">${r[0].toFixed(2)}</td><td>${r[1]}</td><td>${r[2]=='a'?'ask':'bid'}</td></tr>`).join('')}
+draw();
+document.getElementById('go').onclick=()=>{
+  const side=document.getElementById('side').value,q0=+document.getElementById('qty').value;let q=q0,cost=0,filled=0;const hit=new Set();
+  const lv=side=='buy'?[3,2,1,0]:[4,5,6,7];
+  for(const i of lv){if(q<=0)break;const t=Math.min(q,book[i][1]);cost+=t*book[i][0];filled+=t;q-=t;hit.add(i)}
+  draw(hit);const best=side=='buy'?100.05:100.00,avg=cost/filled,slip=Math.abs(avg-best);
+  document.getElementById('res').innerHTML=`Filled <b>${filled}</b> of ${q0}${q>0?` (<span style="color:var(--sell)">${q} unfilled: book exhausted</span>)`:''}<br>Average price <b>${avg.toFixed(4)}</b><br>Slippage vs best ${side=='buy'?'ask':'bid'} (${best.toFixed(2)}): <b>₹${slip.toFixed(4)}</b> = ${(slip/0.05).toFixed(2)} ticks<br>Levels used: ${hit.size}`};
+</script></body></html>
