@@ -120,8 +120,8 @@ F = json.loads((root / "docs" / "concept_facts.json").read_text())
 IMG = {"a1": "01_auction", "a2": "02_order_book", "a3": "03_limit_vs_market", "a4": "04_aggressor_side",
        "a5": "05_slippage", "b6": "06_tape", "b7": "07_classifiers", "b8": "08_ohlcv_estimate"}
 html = TEMPLATE.replace("__ROWS__", rows).replace("__N__", f"{n:,}")
-html = html.replace("Phase 1 study notes (concepts A and B)", "study notes for concepts A to H (Phases 1 to 3)")
-html = html.replace("orderflow-engine: order flow from first principles (Phase 1)", "orderflow-engine: order flow from first principles (Phases 1-3)")
+html = html.replace("Phase 1 study notes (concepts A and B)", "study notes for concepts A to H (Phases 1 to 4)")
+html = html.replace("orderflow-engine: order flow from first principles (Phase 1)", "orderflow-engine: order flow from first principles (Phases 1-4)")
 for sid, name in IMG.items():
     a = html.index(f'<section id="{sid}">')
     b = html.index("</section>", a)
@@ -267,10 +267,20 @@ S.append(sec("c28", "Event detectors and how well they were scored", "Absorption
   ["Recall: labelled events found. Precision: detections that matched a label.", "Intervals are Wilson 95%; small samples are flagged."],
   ["Reading these as market performance. The generator and the detectors share one author's assumptions, so this is a consistency test only.", "Ignoring the weak ones: delta flip precision is about 0.17."],
   "Thresholds tuned on 12 calibration days, scored once on 20 held-out synthetic days.", None, _tb))
-extra_nav = "".join(f'<a href="#{i}">{t}</a>' for i, t in [("c9", "9 Delta per bar"), ("c10", "10 CVD & divergence"), ("c11", "11 Flip / no progress"), ("c12", "12 Footprint cell"), ("c13", "13 POC & value area"), ("c14", "14 Imbalances"), ("c15", "15 Finished / unfinished"), ("c16", "16 Absorption"), ("c17", "17 Trapped traders"), ("c18", "18 Volume profile"), ("c19", "19 Profile shapes"), ("c20", "20 TPO"), ("c21", "21 Composite & naked POC"), ("c22", "22 Rules to test"), ("c23", "23 VWAP"), ("c24", "24 Liquidity heat map"), ("c25", "25 Iceberg"), ("c26", "26 Spoofing"), ("c27", "27 Depth imbalance"), ("c28", "Detector scores")])
+_e = (root / "docs" / "eod_scores.md").read_text().strip().splitlines()
+_eh = [c.strip() for c in _e[0].strip("|").split("|")]
+_et = "<table><tr>" + "".join(f"<th>{c}</th>" for c in _eh) + "</tr>" + "".join("<tr>" + "".join(f"<td>{c.strip()}</td>" for c in r.strip("|").split("|")) + "</tr>" for r in _e[2:]) + "</table>"
+S.append(sec("c29", "Daily (EOD) order-flow proxies and swing flow", "What daily bars and delivery % can and cannot say.",
+  "Daily bars have no aggressor side, so flow is estimated: volume and delivery % z-scores against the previous 20 days, close-location value, and an estimated delta (<code>delta_est</code>). <i>Effort without result</i> = heavy volume and delivery with a small range, placed near a prior low or high.",
+  "End-of-day data is what most traders can get for free. NSE publishes delivered quantity, which separates shares that changed hands to stay from intraday round trips.",
+  ["Yellow bands are planted episodes in a toy series; triangles are detections.", "A swing is known only 3 days after it forms; its flow summary uses days up to then."],
+  ["Reading delivery % as institutional buying: it is not split by participant.", "Using the swing flow label before its confirmation date."],
+  "Toy data; the generator plants the pattern, so scores only show the rule does what it says. Held-out table below.", None,
+  '<img src="img/phase4_swingflow.png" alt="phase 4 swingflow" loading="lazy">' + _et))
+extra_nav = "".join(f'<a href="#{i}">{t}</a>' for i, t in [("c9", "9 Delta per bar"), ("c10", "10 CVD & divergence"), ("c11", "11 Flip / no progress"), ("c12", "12 Footprint cell"), ("c13", "13 POC & value area"), ("c14", "14 Imbalances"), ("c15", "15 Finished / unfinished"), ("c16", "16 Absorption"), ("c17", "17 Trapped traders"), ("c18", "18 Volume profile"), ("c19", "19 Profile shapes"), ("c20", "20 TPO"), ("c21", "21 Composite & naked POC"), ("c22", "22 Rules to test"), ("c23", "23 VWAP"), ("c24", "24 Liquidity heat map"), ("c25", "25 Iceberg"), ("c26", "26 Spoofing"), ("c27", "27 Depth imbalance"), ("c28", "Detector scores"), ("c29", "EOD swing flow")])
 html = html.replace('<a href="#fp">Footprint demo</a>', '<a href="#fp">Footprint demo</a>' + extra_nav)
 html = html.replace('<section id="coming">', "".join(S) + '<section id="coming">')
 html = html.replace("<h2>Coming next</h2><p>Phase 2: delta, CVD and divergence, footprint analytics (POC, value area, imbalances), volume profile, TPO, VWAP. Then book analytics",
-                    "<h2>Coming next</h2><p>Phase 4: EOD swing flow, live recorder, setups and backtests with honest results (including the rules of thumb above), ICT bridge, Pine indicator. Book analytics")
+                    "<h2>Coming next</h2><p>Phase 5: live recorder, live recorder, setups and backtests with honest results (including the rules of thumb above), ICT bridge, Pine indicator. Book analytics")
 (root / "docs" / "index.html").write_text(html, encoding="utf-8")
 print("wrote docs/index.html")

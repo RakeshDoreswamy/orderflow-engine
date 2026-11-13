@@ -66,7 +66,7 @@ Open `docs/index.html` for the study page (concepts 1-27, each with definition, 
 - One study page with 23 concept sections; the planned 41 separate pages come in Phase 8.
 
 ## Roadmap
-3 book + events | 4 EOD providers + swingflow |
+3 book + events (done) | 4 EOD providers + swingflow (done) |
 5 live recorder | 6 setups + backtest | 7 ICT bridge, Pine, Actions | 8 learning site.
 
 ## Setup
@@ -110,3 +110,29 @@ Raw numbers: `docs/detector_scores.csv`.
 - Iceberg, trapped and delta-flip recall are modest, and delta-flip precision is low (~0.17). Treat delta flip as a
   context flag, not a signal.
 - Tiny samples are marked "small sample"; their intervals are wide.
+
+## Phase 4 results: EOD providers and swingflow
+
+**Providers** (`orderflow/data/providers/`): `CsvProvider` (one CSV per symbol) and `parse_bhavcopy` /
+`build_series_from_bhavcopies` for NSE security-wise delivery files you download yourself. They are offline: no
+network calls, no credentials, no gap filling, and a broken frame raises. The bhavcopy parser matches columns by name and
+was tested only on hand-built files shaped like the NSE layout, so check it against a real file before relying on it.
+
+**Swingflow** (`orderflow/swingflow.py`): causal daily features (volume z-score, delivery % z-score, close-location value,
+estimated delta `delta_est`, range vs prior ATR, position in the prior 20-day range), an *effort without result* detector
+(heavy volume and delivery, small range, near a prior low or high), and a summary of the flow around each confirmed swing
+(known only `swing_right` days after the swing). Every baseline uses previous days only; tests prove rows and detections
+do not change when later data is removed.
+
+**Scoring.** Thresholds were set from the rule's definition and checked on 6 calibration series (seed base 300; recall
+0.85, precision 0.80); no tuning followed. The table is 20 held-out toy series (seed base 7000), 600 days each:
+
+| variant | series | labelled | found | recall | recall_ci95 | detection_episodes | true_pos | precision | precision_ci95 |
+|---|---|---|---|---|---|---|---|---|---|
+| volume + delivery % | 20 | 240 | 217 | 0.90 | 0.86-0.94 | 399 | 323 | 0.81 | 0.77-0.85 |
+| volume only (delivery % dropped) | 20 | 240 | 217 | 0.90 | 0.86-0.94 | 587 | 329 | 0.56 | 0.52-0.60 |
+
+- This is a consistency test on a toy generator that plants the very pattern the rule looks for. It says nothing about whether
+  the pattern means anything on NSE data, and the generator makes price memoryless afterwards, so there is no profit to read.
+- Delivery % is what separates the two variants: with volume alone the detector fires on many more unlabelled days (precision 0.56).
+- Chart: `docs/img/phase4_swingflow.png`. Raw numbers: `docs/eod_scores.csv`.

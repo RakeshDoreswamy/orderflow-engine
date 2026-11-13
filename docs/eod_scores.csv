@@ -1,0 +1,3 @@
+variant,series,labelled,found,recall,recall_ci95,detection_episodes,true_pos,precision,precision_ci95
+volume + delivery %,20,240,217,0.9041666666666667,0.86-0.94,399,323,0.8095238095238095,0.77-0.85
+volume only (delivery % dropped),20,240,217,0.9041666666666667,0.86-0.94,587,329,0.5604770017035775,0.52-0.60

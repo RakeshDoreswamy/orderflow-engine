@@ -187,3 +187,48 @@ costs:
     stamp_buy_pct: 0.015
     gst_pct: 18.0
     slippage_ticks: 1
+
+# ---- Phase 4: end-of-day (EOD) order-flow proxies --------------------------------------------------------
+eod:
+  swing_left: 3
+  swing_right: 3
+  vol_lookback: 20            # baseline = the PREVIOUS this-many days (never includes the current day)
+  vol_warmup: 10
+  deliv_lookback: 20
+  deliv_warmup: 10
+  atr_lookback: 14
+  pos_lookback: 20            # prior-days range used to say whether a day sits near a low or a high
+  effort_vol_z: 1.0           # "effort": log-volume z-score at least this
+  effort_deliv_z: 0.8         # delivery % z-score at least this (needs a delivery column)
+  effort_range_atr: 0.7       # "no result": day range <= this x prior ATR
+  pos_low_max: 0.35           # close within the lowest 35% of the prior range -> absorption_at_low
+  pos_high_min: 0.65
+  swing_heavy_vol_z: 1.0
+  swing_heavy_deliv_z: 0.8
+
+synthetic_eod:                # TOY data for tests and teaching. NOT market data.
+  seed: 7
+  n_days: 600
+  start_date: "2020-01-01"
+  start_price: 1000.0
+  daily_vol_pct: 1.2
+  gap_pct: 0.3
+  base_volume: 1000000
+  volume_logsd: 0.25
+  base_deliv_pct: 45.0
+  deliv_sd: 5.0
+  n_episodes: 12
+  episode_len: 4
+  lead_in_days: 12
+  lead_in_drift_pct: 0.6      # per-day drift before an episode (down before a low, up before a high)
+  episode_vol_mult: 2.5
+  episode_range_mult: 0.35
+  episode_deliv_add: 15.0
+
+eod_eval:
+  calibration_seed_base: 300
+  heldout_seed_base: 7000
+  n_calibration_series: 6
+  n_heldout_series: 20
+  grace_days: 1
+  gap_days: 2                 # detections closer than this many days belong to one episode
