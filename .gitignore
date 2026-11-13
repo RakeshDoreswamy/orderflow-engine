@@ -1,0 +1,15 @@
+# secrets and local data
+.env
+data/store/*
+!data/store/.gitkeep
+# python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+*.egg-info/
+# os / editor
+.DS_Store
+.idea/
+.vscode/

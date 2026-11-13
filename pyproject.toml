@@ -1,0 +1,14 @@
+[project]
+name = "orderflow-engine"
+version = "0.1.0"
+description = "Order flow from first principles, applied to NSE India. Companion to ict-swing-engine."
+requires-python = ">=3.10"
+dependencies = ["pandas>=2.0", "numpy>=1.24", "pyarrow>=14", "matplotlib>=3.7", "PyYAML>=6"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+site = ["plotly>=5"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

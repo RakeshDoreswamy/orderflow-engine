@@ -1,0 +1,82 @@
+# Every threshold, ratio, session time and cost lives here. No magic numbers in code.
+market:
+  timezone: Asia/Kolkata
+  preopen_start: "09:00"
+  preopen_end: "09:08"
+  session_open: "09:15"      # NSE cash session
+  session_close: "15:30"
+
+instrument:
+  # FALLBACK ONLY, used by synthetic data and tests. Real runs must read the tick size
+  # per instrument from the broker's instrument master (it varies by price band).
+  default_tick_size: 0.05
+
+bars:
+  time_bar_freq: "5min"
+  footprint_row_ticks: 1     # footprint price row = this many ticks (must be integer multiple)
+  demo_footprint_row_ticks: 10   # coarser rows so wide-range demo charts stay readable
+  tick_bar_size: 500
+  volume_bar_size: 20000
+
+classify:
+  quote_price_eps_ticks: 0.001   # float tolerance when comparing price to quote, in ticks
+
+# Used from Phase 2 onward (listed here so thresholds are never hard-coded later)
+footprint:
+  imbalance_ratio: 3.0
+  imbalance_min_volume: 10
+  stacked_min_levels: 3
+profile:
+  value_area_pct: 0.70
+
+synthetic:
+  seed: 42
+  start_price: 1000.0
+  events_per_min: 40          # mean trade arrival rate in normal regime
+  buy_prob_normal: 0.5
+  move_prob_normal: 0.06      # chance per trade the quote re-centres by one tick (random walk)
+  wide_spread_prob: 0.15      # chance spread is 2 ticks instead of 1 after a reprice
+  trade_qty_median: 50
+  trade_qty_sigma: 0.9
+  depth_median: 400
+  depth_sigma: 0.7
+  quote_refresh_prob: 0.20    # chance displayed sizes are re-drawn between trades
+  stale_quote_prob: 0.15      # chance the quote attached to a trade is the previous event's (latency)
+  burst_buy_prob: 0.90
+  burst_qty_mult: 4.0
+  burst_intensity_mult: 3.0
+  absorb_aggressor_prob: 0.85 # share of aggressive flow into the absorbed side
+  absorb_qty_mult: 2.5
+  absorb_intensity_mult: 2.0
+  absorb_refill_mult: 8.0     # passive refill size as a multiple of depth_median
+  # Labelled events, minutes after session open. kinds: burst_up, burst_down,
+  # absorption_bid, absorption_ask, sweep_reversal (down-burst -> absorption -> up-burst)
+  # NOT yet generated (need order book, Phase 3): iceberg refill, exhaustion, pulled spoof.
+  schedule:
+    - {kind: burst_up,        at_min: 45,  dur_min: 6}
+    - {kind: absorption_bid,  at_min: 120, dur_min: 10}
+    - {kind: sweep_reversal,  at_min: 210, dur_min: 15}
+    - {kind: absorption_ask,  at_min: 300, dur_min: 10}
+
+# NSE cost model. RATES CHANGE: verify every number against the current broker charge
+# sheet and exchange/SEBI circulars before trusting any backtest. Applied from Phase 6.
+costs:
+  intraday:
+    brokerage_pct: 0.03
+    brokerage_cap_per_order: 20.0
+    stt_sell_pct: 0.025
+    exchange_txn_pct: 0.00297
+    sebi_pct: 0.0001
+    stamp_buy_pct: 0.003
+    gst_pct: 18.0            # on brokerage + exchange txn + SEBI
+    slippage_ticks: 1
+  delivery:
+    brokerage_pct: 0.0
+    brokerage_cap_per_order: 0.0
+    stt_buy_pct: 0.1
+    stt_sell_pct: 0.1
+    exchange_txn_pct: 0.00297
+    sebi_pct: 0.0001
+    stamp_buy_pct: 0.015
+    gst_pct: 18.0
+    slippage_ticks: 1
