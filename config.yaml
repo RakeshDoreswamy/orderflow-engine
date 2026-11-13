@@ -21,13 +21,49 @@ bars:
 classify:
   quote_price_eps_ticks: 0.001   # float tolerance when comparing price to quote, in ticks
 
-# Used from Phase 2 onward (listed here so thresholds are never hard-coded later)
+delta:
+  swing_left: 3               # bars to the left a swing must exceed
+  swing_right: 3              # bars to the right that CONFIRM a swing (signal known only then)
+  flip_min_abs_pct: 0.15      # both bars need |delta%| at least this for a delta flip
+  no_progress_min_abs_pct: 0.20
+  no_progress_max_move_ticks: 5   # close-open in the delta direction no more than this
+
 footprint:
   imbalance_ratio: 3.0
   imbalance_min_volume: 10
   stacked_min_levels: 3
+
 profile:
   value_area_pct: 0.70
+  row_ticks: 10               # profile row size in ticks
+  smooth_rows: 3              # moving-average window for HVN/LVN detection
+  hvn_min_frac: 0.60          # HVN: smoothed peak >= this share of the max
+  lvn_max_frac: 0.35          # LVN: smoothed valley <= this share of the max
+  double_min_sep_frac: 0.25   # two HVNs this far apart (share of rows) ...
+  double_valley_frac: 0.70    # ... with a valley below this share of the lower peak = double distribution
+  pb_mass_frac: 0.50          # P/b: share of volume in the upper/lower third
+  d_mid_frac: 0.50            # D: share of volume in the middle third
+  d_sym: 0.20                 # D: |upper share - lower share| at most this
+  thin_min_rows: 12
+  thin_poc_share: 0.08        # thin profile: POC holds at most this share of volume
+
+tpo:
+  period_min: 30
+  row_ticks: 10
+  ib_periods: 2               # initial balance = first hour
+  poor_min_tpos: 2            # poor high/low: extreme row has at least this many letters
+  single_print_min_rows: 3
+  excess_min_rows: 2          # excess/tail: this many single-print rows at an extreme
+
+open_type:                    # heuristics TO BE TESTED, not facts
+  window_min: 30
+  drive_net_frac: 0.70
+  drive_counter_frac: 0.15
+  test_counter_max_frac: 0.35
+  reverse_net_frac: 0.50
+
+vwap:
+  band_mults: [1.0, 2.0]
 
 synthetic:
   seed: 42
