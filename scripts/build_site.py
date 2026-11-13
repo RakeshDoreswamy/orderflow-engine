@@ -120,8 +120,8 @@ F = json.loads((root / "docs" / "concept_facts.json").read_text())
 IMG = {"a1": "01_auction", "a2": "02_order_book", "a3": "03_limit_vs_market", "a4": "04_aggressor_side",
        "a5": "05_slippage", "b6": "06_tape", "b7": "07_classifiers", "b8": "08_ohlcv_estimate"}
 html = TEMPLATE.replace("__ROWS__", rows).replace("__N__", f"{n:,}")
-html = html.replace("Phase 1 study notes (concepts A and B)", "study notes for concepts A to F (Phases 1 and 2)")
-html = html.replace("orderflow-engine: order flow from first principles (Phase 1)", "orderflow-engine: order flow from first principles (Phases 1-2)")
+html = html.replace("Phase 1 study notes (concepts A and B)", "study notes for concepts A to H (Phases 1 to 3)")
+html = html.replace("orderflow-engine: order flow from first principles (Phase 1)", "orderflow-engine: order flow from first principles (Phases 1-3)")
 for sid, name in IMG.items():
     a = html.index(f'<section id="{sid}">')
     b = html.index("</section>", a)
@@ -233,10 +233,44 @@ S.append(sec("c23", "23. VWAP, anchored VWAP and bands", "The volume-weighted av
   ["Price above VWAP and rising VWAP: buyers in control of the average.", "Anchored VWAP from a swing: the average price of everyone who traded since."],
   ["Anchoring with hindsight (the chart does exactly that, only to illustrate; real signals must anchor at an already-confirmed event).", "Expecting bands to behave like a fixed percentage."],
   "", "23_vwap"))
-extra_nav = "".join(f'<a href="#{i}">{t}</a>' for i, t in [("c9", "9 Delta per bar"), ("c10", "10 CVD & divergence"), ("c11", "11 Flip / no progress"), ("c12", "12 Footprint cell"), ("c13", "13 POC & value area"), ("c14", "14 Imbalances"), ("c15", "15 Finished / unfinished"), ("c16", "16 Absorption"), ("c17", "17 Trapped traders"), ("c18", "18 Volume profile"), ("c19", "19 Profile shapes"), ("c20", "20 TPO"), ("c21", "21 Composite & naked POC"), ("c22", "22 Rules to test"), ("c23", "23 VWAP")])
+d25, d26, d27 = F["25_iceberg"], F["26_spoofing_recognition"], F["27_depth_imbalance"]
+S.append(sec("c24", "24. Liquidity heat map", "Resting size per price, over time.",
+  "Each column is a book snapshot; colour is the displayed size at each price (log scale). Trades are drawn on top. Only the best 5 levels per side are recorded, so anything deeper is invisible.",
+  "It shows where resting liquidity sat when trades arrived: a dark row that trades keep touching is a wall being tested.",
+  ["Dark horizontal band = large resting order.", "If trades eat into the band and it thins, it is being consumed; if it vanishes with no trades, it was pulled."],
+  ["Reading displayed size as intent. Orders can be cancelled at any time.", "Forgetting that hidden (iceberg) size does not show."],
+  "Synthetic data with a planted bid wall. No claim about real NSE books.", "24_liquidity_heatmap"))
+S.append(sec("c25", "25. Iceberg (disclosed-quantity) orders", "Small displayed size, large executed size.",
+  "NSE allows a disclosed quantity: only part of an order is shown and the rest refills after each fill. The detector flags a price where, within a run, refills repeat, executed volume is at least 5x the largest displayed size and the refilled sizes are nearly constant.",
+  "A level that keeps absorbing sells without its displayed size shrinking suggests a larger hidden buyer. This is an inference, never a certainty.",
+  ["Top: displayed size stays near the disclosed quantity.", "Bottom: cumulative executed volume at that price keeps climbing far beyond it."],
+  ["Calling every busy level an iceberg: stale snapshots and ordinary liquidity can look similar.", "Trading it as a signal without testing it."],
+  f"Here the detector fired at {d25['price']:.2f}: executed {d25.get('executed', 0):,.0f} against a displayed {d25.get('displayed', 0):,.0f} after {d25.get('refills', 0)} refills (synthetic). Held-out recall is only about 0.58 (see scores below).", "25_iceberg"))
+S.append(sec("c26", "26. Spoofing: recognition only", "Large size that appears and disappears without trading.",
+  "A spoof-like pull is a large resting order that is cancelled within a short life with almost nothing traded against it. The right panel shows a genuine wall for contrast: it sits, is consumed, and trades against it.",
+  "Knowing the pattern prevents mistaking a vanishing wall for real support or resistance. Spoofing is illegal; this repo recognises the pattern and never trades it.",
+  ["Large size, short life, near-zero traded = spoof-like.", "Large size, long life, traded against = a real wall being tested."],
+  ["Claiming intent: a cancelled order is not proof of manipulation.", "Using the flag as a signal."],
+  f"On this synthetic day the tracker found {d26['episodes']} large-order episodes, {d26['pulled_episodes']} of them pulled. Spoof-like precision on held-out days is only about 0.46: the generator's ordinary deep orders and wall removals also look like pulls.", "26_spoofing_recognition"))
+S.append(sec("c27", "27. Depth imbalance", "Which side has more resting size near the touch.",
+  "(bid size - ask size) / (bid size + ask size), summed over the best N levels (N = 3 in config.yaml). It ranges from -1 (all ask) to +1 (all bid).",
+  "A common idea is that a heavy bid supports price. Whether that predicts anything is an empirical question, and the displayed book can be pulled.",
+  ["Positive = more bid size; negative = more ask size.", "Check it against what happens next on real data before believing it."],
+  ["Treating it as a prediction. On this toy day its 5-second rank correlation with the next mid move is " + f"{d27['forward_ic_5s']:.2f}" + ", which comes from the toy book's own mechanics.", "Ignoring that spoofed size inflates it."],
+  "", "27_depth_imbalance"))
+_sc = (root / "docs" / "detector_scores.md").read_text().strip().splitlines()
+_hd = [c.strip() for c in _sc[0].strip("|").split("|")]
+_tb = "<table><tr>" + "".join(f"<th>{c}</th>" for c in _hd) + "</tr>" + "".join("<tr>" + "".join(f"<td>{c.strip()}</td>" for c in r.strip("|").split("|")) + "</tr>" for r in _sc[2:]) + "</table>"
+S.append(sec("c28", "Event detectors and how well they were scored", "Absorption, exhaustion, trapped traders, delta flip, large prints, walls, icebergs.",
+  "Each detector is a plain rule in <code>orderflow/events.py</code> or <code>orderflow/book.py</code> with thresholds in <code>config.yaml</code>. They only use data up to the moment they fire (prefix-tested).",
+  "A rule that sounds right is not a rule that works. Scoring against planted labels at least shows whether each rule finds what it claims to find.",
+  ["Recall: labelled events found. Precision: detections that matched a label.", "Intervals are Wilson 95%; small samples are flagged."],
+  ["Reading these as market performance. The generator and the detectors share one author's assumptions, so this is a consistency test only.", "Ignoring the weak ones: delta flip precision is about 0.17."],
+  "Thresholds tuned on 12 calibration days, scored once on 20 held-out synthetic days.", None, _tb))
+extra_nav = "".join(f'<a href="#{i}">{t}</a>' for i, t in [("c9", "9 Delta per bar"), ("c10", "10 CVD & divergence"), ("c11", "11 Flip / no progress"), ("c12", "12 Footprint cell"), ("c13", "13 POC & value area"), ("c14", "14 Imbalances"), ("c15", "15 Finished / unfinished"), ("c16", "16 Absorption"), ("c17", "17 Trapped traders"), ("c18", "18 Volume profile"), ("c19", "19 Profile shapes"), ("c20", "20 TPO"), ("c21", "21 Composite & naked POC"), ("c22", "22 Rules to test"), ("c23", "23 VWAP"), ("c24", "24 Liquidity heat map"), ("c25", "25 Iceberg"), ("c26", "26 Spoofing"), ("c27", "27 Depth imbalance"), ("c28", "Detector scores")])
 html = html.replace('<a href="#fp">Footprint demo</a>', '<a href="#fp">Footprint demo</a>' + extra_nav)
 html = html.replace('<section id="coming">', "".join(S) + '<section id="coming">')
 html = html.replace("<h2>Coming next</h2><p>Phase 2: delta, CVD and divergence, footprint analytics (POC, value area, imbalances), volume profile, TPO, VWAP. Then book analytics",
-                    "<h2>Coming next</h2><p>Phase 3: book analytics and the events module (absorption, exhaustion, trapped traders) scored against the labels above. Then EOD swing flow, live recorder, setups and backtests with honest results (including the rules of thumb above), ICT bridge, Pine indicator. Book analytics")
+                    "<h2>Coming next</h2><p>Phase 4: EOD swing flow, live recorder, setups and backtests with honest results (including the rules of thumb above), ICT bridge, Pine indicator. Book analytics")
 (root / "docs" / "index.html").write_text(html, encoding="utf-8")
 print("wrote docs/index.html")

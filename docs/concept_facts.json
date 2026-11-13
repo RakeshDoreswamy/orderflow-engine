@@ -117,5 +117,24 @@
  },
  "23_vwap": {
   "close_vs_vwap": 2.20961763697278
+ },
+ "24_liquidity_heatmap": {
+  "window": "12:34-12:40",
+  "max_displayed": 10000.0
+ },
+ "25_iceberg": {
+  "price": 991.75,
+  "detected": true,
+  "executed": 4130.0,
+  "displayed": 150.0,
+  "refills": 24
+ },
+ "26_spoofing_recognition": {
+  "pulled_episodes": 25,
+  "episodes": 28
+ },
+ "27_depth_imbalance": {
+  "levels": 3,
+  "forward_ic_5s": 0.0769358093967481
  }
 }

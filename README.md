@@ -50,7 +50,7 @@ Iceberg refills, exhaustion and pulled spoofs need an order book (Phase 3).
 | `orderflow/vwap.py` | session and anchored VWAP with sigma bands |
 | `orderflow/viz/concepts.py` | one generated visual per concept 1-23 (`python scripts/build_gallery.py`) |
 
-Open `docs/index.html` for the study page (concepts 1-23, each with definition, why it matters, how to read it, common mistakes and a generated visual). Rebuild with `python scripts/build_gallery.py && python scripts/build_site.py`.
+Open `docs/index.html` for the study page (concepts 1-27, each with definition, why it matters, how to read it, common mistakes and a generated visual). Rebuild with `python scripts/build_gallery.py && python scripts/build_site.py`.
 
 ### Measured on synthetic data (toy generator; nothing here is evidence about real NSE behaviour)
 - CVD divergences found on the seed-42 day: 6 (4 bearish, 2 bullish). Predictive value is untested.

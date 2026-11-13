@@ -1,4 +1,4 @@
-"""Generate one visual per concept (1-23) into docs/img/concepts/ and docs/concept_facts.json.
+"""Generate one visual per concept (1-27) into docs/img/concepts/ and docs/concept_facts.json.
 Run: python scripts/build_gallery.py"""
 import json
 import sys
@@ -6,7 +6,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from orderflow.config import load_config  # noqa: E402
-from orderflow.data.synthetic import generate_day, generate_days  # noqa: E402
+from orderflow.data.synthetic import generate_day, generate_days, generate_eval_days  # noqa: E402
 from orderflow.viz import concepts as C  # noqa: E402
 
 root = Path(__file__).resolve().parents[1]
@@ -14,6 +14,7 @@ img = root / "docs" / "img" / "concepts"
 cfg = load_config()
 day = generate_day(cfg)
 days = generate_days(cfg, 8)
+eds = generate_eval_days(cfg, 2, seed_base=500, n_events=6)
 jobs = {
     "01_auction": lambda o: C.c01_auction(day, cfg, o), "02_order_book": lambda o: C.c02_dom(cfg, o),
     "03_limit_vs_market": lambda o: C.c03_limit_market(cfg, o), "04_aggressor_side": lambda o: C.c04_aggressor(day, o),
@@ -27,6 +28,8 @@ jobs = {
     "19_profile_shapes": lambda o: C.c19_shapes(cfg, o), "20_tpo": lambda o: C.c20_tpo(day, cfg, o),
     "21_composite_naked": lambda o: C.c21_composite(days, cfg, o), "22_open_types": lambda o: C.c22_open(days, cfg, o),
     "23_vwap": lambda o: C.c23_vwap(day, cfg, o),
+    "24_liquidity_heatmap": lambda o: C.c24_heatmap(eds[0], cfg, o), "25_iceberg": lambda o: C.c25_iceberg(eds[1], cfg, o),
+    "26_spoofing_recognition": lambda o: C.c26_spoof(eds[0], cfg, o), "27_depth_imbalance": lambda o: C.c27_imbalance(eds[0], cfg, o),
 }
 facts = {}
 for name, fn in jobs.items():

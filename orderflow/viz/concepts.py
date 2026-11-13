@@ -529,3 +529,132 @@ def c23_vwap(day, cfg, out):
     _time_axis(ax)
     ax.set_title(f"23. Session VWAP with ±1σ/±2σ bands and an anchored VWAP  |  {SYN}\nanchor chosen with hindsight (lowest print of the labelled sweep) purely to illustrate", fontsize=9)
     return _save(fig, out), {"close_vs_vwap": float(day.ticks.price.iloc[-1] - v.vwap.iloc[-1])}
+
+
+# ---------------------------------------------------------------- Phase 3: book concepts (24-27)
+from .. import book as _B  # noqa: E402
+from ..data.synthetic import generate_eval_days  # noqa: E402,F401
+from matplotlib.colors import LogNorm  # noqa: E402
+
+
+def _level_series(book, side, price, tick):
+    """Displayed size at one price over time (0 when the price is not within the 5 visible levels)."""
+    n = sum(c.startswith(f"{side}_px_") for c in book.columns)
+    sz = np.zeros(len(book))
+    for i in range(1, n + 1):
+        m = np.isclose(book[f"{side}_px_{i}"].to_numpy(), price, atol=tick / 4)
+        sz[m] = book[f"{side}_sz_{i}"].to_numpy()[m]
+    return pd.Series(sz, index=book["ts"])
+
+
+def c24_heatmap(day, cfg, out):
+    """Liquidity heat map: displayed size at each price over time, with trades on top."""
+    e = _event(day, "wall_bid")
+    t0, t1 = e["start"] - pd.Timedelta(minutes=1), e["start"] + pd.Timedelta(minutes=5)
+    bk = day.book[(day.book.ts >= t0) & (day.book.ts < t1)].iloc[::2]
+    tk = day.ticks[(day.ticks.ts >= t0) & (day.ticks.ts < t1)]
+    tick = day.tick_size
+    lo, hi = tk.price.min() - 8 * tick, tk.price.max() + 8 * tick
+    rows = np.arange(lo, hi + tick / 2, tick)
+    M = np.full((len(rows), len(bk)), np.nan)
+    n = sum(c.startswith("bid_px_") for c in bk.columns)
+    for side in ("bid", "ask"):
+        for i in range(1, n + 1):
+            px, sz = bk[f"{side}_px_{i}"].to_numpy(), bk[f"{side}_sz_{i}"].to_numpy()
+            ix = np.round((px - lo) / tick).astype(int)
+            ok = (ix >= 0) & (ix < len(rows))
+            M[ix[ok], np.arange(len(bk))[ok]] = sz[ok]
+    fig, ax = plt.subplots(figsize=(11, 5.5))
+    x = mdates.date2num(bk["ts"].dt.tz_convert(TZ))
+    im = ax.pcolormesh(np.append(x, x[-1] + (x[-1] - x[-2])), np.append(rows - tick / 2, rows[-1] + tick / 2), np.ma.masked_invalid(M),
+                       norm=LogNorm(vmin=max(np.nanmin(M), 1), vmax=np.nanmax(M)), cmap="YlOrRd", shading="flat")
+    s = tk.iloc[::max(len(tk) // 900, 1)]
+    ax.scatter(mdates.date2num(s["ts"].dt.tz_convert(TZ)), s["price"], s=3, c=np.where(s["side_true"] > 0, GREEN, RED), alpha=0.8)
+    ax.xaxis_date(tz=TZ)
+    _time_axis(ax)
+    fig.colorbar(im, ax=ax, label="displayed size (log scale)")
+    ax.set_title(f"24. Liquidity heat map: displayed size per price over time, trades in green (buy) / red (sell)  |  {SYN}\n"
+                 "Darker = more resting size. The planted bid wall holds a row dark while trades approach it.", fontsize=9)
+    return _save(fig, out), {"window": f"{t0:%H:%M}-{t1:%H:%M}", "max_displayed": float(np.nanmax(M))}
+
+
+def c25_iceberg(day, cfg, out):
+    """Disclosed-quantity iceberg: displayed size keeps refilling while far more volume executes than was ever displayed."""
+    e = _event(day, "iceberg_bid")
+    hits = _B.iceberg_refills(day.ticks, day.book, cfg, day.tick_size)
+    t0, t1 = e["start"], e["start"] + pd.Timedelta(minutes=3)
+    if len(hits):
+        h = hits.iloc[0]
+        px, t_hit = float(h["price"]), h["time"]
+    else:
+        px, t_hit = float(day.ticks[(day.ticks.ts >= t0)].price.iloc[0]), None
+    bk = day.book[(day.book.ts >= t0) & (day.book.ts < t1)]
+    tk = day.ticks[(day.ticks.ts >= t0) & (day.ticks.ts < t1) & np.isclose(day.ticks.price, px, atol=day.tick_size / 4) & (day.ticks.side_true < 0)]
+    sz = _level_series(bk, "bid", px, day.tick_size)
+    fig, (a1, a2) = plt.subplots(2, 1, figsize=(11, 6), sharex=True)
+    a1.step(sz.index, sz.values, where="post", color="#2980b9", lw=1)
+    a1.set_ylabel("displayed bid size")
+    a2.step(tk["ts"], tk["qty"].cumsum(), where="post", color=RED, lw=1.2)
+    a2.set_ylabel("cumulative sell volume\nexecuted at this price")
+    if t_hit is not None:
+        for a in (a1, a2):
+            a.axvline(t_hit, color="k", ls=":", lw=1)
+        a1.text(t_hit, a1.get_ylim()[1] * 0.95, " detector fired", fontsize=8, va="top")
+    a2.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S", tz=TZ))
+    a1.set_title(f"25. Iceberg (disclosed-quantity) order at {px:.2f}  |  {SYN}\n"
+                 "Displayed size stays pinned near the disclosed quantity while executed volume is many times larger. Real icebergs are only ever INFERRED.", fontsize=9)
+    f = {"price": px, "detected": bool(len(hits))}
+    if len(hits):
+        f.update(executed=float(hits.iloc[0]["executed"]), displayed=float(hits.iloc[0]["displayed"]), refills=int(hits.iloc[0]["refills"]))
+    return _save(fig, out), f
+
+
+def c26_spoof(day, cfg, out):
+    """Spoof-like pulls vs a genuine wall: size appears, never trades, disappears, versus size that is consumed or sits."""
+    ep = _B.track_large_orders(day.book, day.ticks, cfg, day.tick_size)
+    sp = ep[(ep.outcome == "pulled") & (ep.side == "ask")].iloc[0]
+    w = _event(day, "wall_bid")
+    tick = day.tick_size
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(12, 4.8))
+    t0, t1 = sp.first_ts - pd.Timedelta(seconds=30), sp.end_ts + pd.Timedelta(seconds=30)
+    bk = day.book[(day.book.ts >= t0) & (day.book.ts < t1)]
+    s = _level_series(bk, "ask", sp.price, tick)
+    a1.step(s.index, s.values, where="post", color="#8e44ad")
+    a1.axvspan(sp.first_ts, sp.end_ts, color="#8e44ad", alpha=0.12)
+    a1.set_title(f"spoof-like: {sp.max_size:,.0f} lots at {sp.price:.2f}, appeared and was pulled in "
+                 f"{(sp.end_ts - sp.first_ts).total_seconds():.0f}s with {sp.traded:,.0f} traded", fontsize=9)
+    a1.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M:%S", tz=TZ))
+    wep = ep[(ep.side == "bid") & (ep.first_ts >= w["start"]) & (ep.first_ts < w["end"])]
+    if len(wep):
+        g = wep.sort_values("max_size").iloc[-1]
+        t0, t1 = g.first_ts - pd.Timedelta(seconds=30), g.end_ts + pd.Timedelta(seconds=30)
+        bk = day.book[(day.book.ts >= t0) & (day.book.ts < t1)]
+        s = _level_series(bk, "bid", g.price, tick)
+        a2.step(s.index, s.values, where="post", color="#16a085")
+        a2.axvspan(g.first_ts, g.end_ts, color="#16a085", alpha=0.12)
+        a2.set_title(f"planted wall: {g.max_size:,.0f} lots at {g.price:.2f}, outcome '{g.outcome}', {g.traded:,.0f} traded", fontsize=9)
+    a2.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M", tz=TZ))
+    fig.suptitle(f"26. Spoofing is RECOGNISED here, never traded  |  {SYN}\n"
+                 "A spoof-like pull = large size that vanishes without trading. Intent cannot be proven from the book alone.", fontsize=9, y=1.04)
+    return _save(fig, out), {"pulled_episodes": int((ep.outcome == "pulled").sum()), "episodes": int(len(ep))}
+
+
+def c27_imbalance(day, cfg, out):
+    """Depth imbalance = (bid size - ask size) / (bid + ask) over the best N levels, against the mid price."""
+    n = int(cfg.book.imbalance_levels)
+    imb = _B.depth_imbalance(day.book, n)
+    ic = _B.imbalance_forward_ic(day.book, n, 5.0)
+    mid = (day.book["bid_px_1"] + day.book["ask_px_1"]) / 2
+    sl = slice(len(day.book) // 3, len(day.book) // 3 + 1800)
+    ts = day.book["ts"].iloc[sl]
+    fig, (a1, a2) = plt.subplots(2, 1, figsize=(11, 5.5), sharex=True)
+    a1.plot(ts, mid.iloc[sl], color="#333", lw=0.8)
+    a1.set_ylabel("mid price")
+    a2.fill_between(ts, 0, imb.iloc[sl], color="#2980b9", alpha=0.6, step="post")
+    a2.axhline(0, color="k", lw=0.5)
+    a2.set_ylim(-1, 1)
+    a2.set_ylabel(f"imbalance ({n} levels)")
+    _time_axis(a2)
+    a1.set_title(f"27. Depth imbalance  |  {SYN}\nPositive = more resting size on the bid. Rank correlation with the mid change over the next 5 s on this day: {ic:.2f} "
+                 "(an artifact of the toy book's own mechanics, NOT evidence about real markets)", fontsize=9)
+    return _save(fig, out), {"levels": n, "forward_ic_5s": float(ic)}
