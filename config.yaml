@@ -232,3 +232,12 @@ eod_eval:
   n_heldout_series: 20
   grace_days: 1
   gap_days: 2                 # detections closer than this many days belong to one episode
+
+# ---- Phase 5: live recorder (stores what the feed sends; never invents rows) -------------------------------
+recorder:
+  store_root: data/store
+  flush_rows: 5000            # write a parquet part after this many buffered rows
+  book_snapshot_sec: 1.0      # keep at most one book snapshot per this many seconds
+  book_levels: 5
+  gap_alert_s: 30             # in-session silence longer than this is logged as a gap
+  schema_version: 1

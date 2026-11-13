@@ -67,7 +67,7 @@ Open `docs/index.html` for the study page (concepts 1-27, each with definition, 
 
 ## Roadmap
 3 book + events (done) | 4 EOD providers + swingflow (done) |
-5 live recorder | 6 setups + backtest | 7 ICT bridge, Pine, Actions | 8 learning site.
+5 live recorder core (done; broker adapter not written) | 6 setups + backtest | 7 ICT bridge, Pine, Actions | 8 learning site.
 
 ## Setup
 ```
@@ -136,3 +136,31 @@ do not change when later data is removed.
   the pattern means anything on NSE data, and the generator makes price memoryless afterwards, so there is no profit to read.
 - Delivery % is what separates the two variants: with volume alone the detector fires on many more unlabelled days (precision 0.56).
 - Chart: `docs/img/phase4_swingflow.png`. Raw numbers: `docs/eod_scores.csv`.
+
+## Phase 5 results: live recorder (core only; no broker connection)
+
+`orderflow/recorder.py` turns feed messages into per-day parquet parts (`ticks`, `book`) plus a `manifest.json`
+under `data/store/<SYMBOL>/<date>/` (git-ignored). It drops out-of-session, out-of-order and malformed messages,
+logs in-session silences longer than `recorder.gap_alert_s` as gaps, never guesses a trade when cumulative volume
+goes backwards, and writes parts atomically (temp file then rename). `load_day` reads a day back and `quality_report`
+lists facts that decide whether a recording is usable (gaps, off-tick prices, missing or crossed quotes, minutes with
+trades). Tick size comes from `load_instrument_master` (an instruments CSV you download) and raises if the symbol is
+missing; the config value is a fallback for synthetic data only. `scripts/record.py replay` records a captured raw feed
+from a JSONL file.
+
+**Verified (tests, 8 of them, plus `scripts/phase5_demo.py`).** A full synthetic day replayed as 17,014 broker-style
+snapshot messages produced 17,013 trades (the first message only seeds the state) whose prices and quantities equal the
+originals, with zero off-tick prices, zero crossed quotes and all 375 session minutes covered. The recorded bid/ask are
+tested to be the previous message's quote.
+
+**Not done, on purpose or by necessity**
+- There is **no live broker adapter**. This sandbox has no market-data access and I will not ship an untested websocket
+  client. Implement `orderflow.recorder.Feed` for your broker; the field names `normalize_snapshot` expects
+  (`exchange_timestamp`, `last_price`, `volume_traded`, `depth.buy/sell[{price, quantity}]`) follow the common Kite-style
+  full-mode layout from memory, so check them against your broker's documentation.
+- Snapshot feeds merge trades: a recorded row is the volume increase since the previous message, which can be several
+  real trades. Order flow from it is coarser than a true tape, and the aggressor side is never recorded (classify later,
+  `_est` columns).
+- The demo's classifier accuracy on recorded quotes (quote rule 99.99%) is an artifact of the toy: its book snapshots are never
+  stale, whereas the generator's own tick quotes are stale 15% of the time (99.3%). Do not read it as evidence about real feeds.
+- Never run against real data yet, so real-feed behaviour (reconnects, bad timestamps, pre-open ticks) is untested.

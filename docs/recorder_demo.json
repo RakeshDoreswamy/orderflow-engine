@@ -1,0 +1,49 @@
+{
+ "messages": 17014,
+ "trades_recorded": 17013,
+ "book_snapshots": 9381,
+ "stats": {
+  "messages": 17014,
+  "trades": 17013,
+  "books": 9381,
+  "dropped_out_of_session": 0,
+  "dropped_out_of_order": 0,
+  "dropped_bad_message": 0,
+  "volume_resets": 0
+ },
+ "quality": {
+  "trades": 17013,
+  "book_snapshots": 9381,
+  "gaps": 0,
+  "gap_seconds_total": 0.0,
+  "pct_prices_off_tick": 0.0,
+  "pct_missing_quote": 0.0,
+  "pct_crossed_or_locked_quote": 0.0,
+  "minutes_with_trades": 375,
+  "session_minutes": 375,
+  "pct_trades_outside_quote": 0.0,
+  "ts_monotonic": true
+ },
+ "accuracy_recorded_quotes": {
+  "tick_rule": {
+   "coverage": 0.9998236642567448,
+   "accuracy_all": 0.9225886087109857,
+   "accuracy_all_vol": 0.9358809185403721
+  },
+  "quote_rule": {
+   "coverage": 1.0,
+   "accuracy_all": 0.9998824428378299,
+   "accuracy_all_vol": 0.9998691598054702
+  },
+  "lee_ready": {
+   "coverage": 1.0,
+   "accuracy_all": 0.9998824428378299,
+   "accuracy_all_vol": 0.9998691598054702
+  }
+ },
+ "accuracy_generator_quotes_all": {
+  "tick_rule": 0.922710708828024,
+  "quote_rule": 0.9927118843305514,
+  "lee_ready": 0.9932996355942165
+ }
+}
