@@ -85,14 +85,85 @@ synthetic:
   absorb_qty_mult: 2.5
   absorb_intensity_mult: 2.0
   absorb_refill_mult: 8.0     # passive refill size as a multiple of depth_median
+  # ---- Phase 3: order book and book events (all toy values) ----
+  book_levels: 5              # depth levels recorded per side (NSE feeds typically give 5)
+  book_snapshot_sec: 1.0      # also snapshot at least this often when no trade happens
+  deep_depth_mult: 1.2        # deeper levels are this much larger on average
+  iceberg_disclosed: 150      # displayed (disclosed) quantity of the iceberg order
+  iceberg_total: 500000       # hidden total behind it
+  spoof_mult: 15              # spoof order size as a multiple of depth_median
+  spoof_interval_s: 30        # new spoof placed at least this long after the previous pull
+  spoof_max_life_s: 20        # pulled at the latest after this
+  spoof_pull_dist_ticks: 1    # pulled when the best price is this close to it
+  spoof_buy_prob: 0.30        # sell-biased drift so price approaches a bid spoof (mirror for ask)
+  wall_mult: 25               # genuine wall size as a multiple of depth_median (never pulled)
+  wall_buy_prob: 0.65         # buy-biased drift toward an ask wall (mirror for bid)
+  dry_up_intensity_mult: 0.25 # trade rate multiplier in the dry-up phase of an exhaustion
+  n_large_prints: 0           # injected single large trades per day (0 = none)
+  large_print_mult: 40        # injected qty = this x trade_qty_median x U(1, 1.5)
   # Labelled events, minutes after session open. kinds: burst_up, burst_down,
   # absorption_bid, absorption_ask, sweep_reversal (down-burst -> absorption -> up-burst)
-  # NOT yet generated (need order book, Phase 3): iceberg refill, exhaustion, pulled spoof.
+  # Phase 3 kinds (used by eval days): iceberg_bid/ask, spoof_bid/ask, wall_bid/ask, exhaustion_up/down,
+  # trap_reversal_up (burst_up -> absorption_ask -> burst_down)
   schedule:
     - {kind: burst_up,        at_min: 45,  dur_min: 6}
     - {kind: absorption_bid,  at_min: 120, dur_min: 10}
     - {kind: sweep_reversal,  at_min: 210, dur_min: 15}
     - {kind: absorption_ask,  at_min: 300, dur_min: 10}
+
+book:                         # Phase 3: order-book analytics (rules in book.py docstrings)
+  imbalance_levels: 3
+  baseline_minutes: 5         # "typical" level size = median of the previous N minutes
+  baseline_warmup_min: 5      # no large-order tracking before this (no baseline yet)
+  wall_min_mult: 10           # a large order is >= this x the typical displayed level size
+  wall_min_s: 3               # a wall must survive this long
+  wall_min_level: 1           # 0-based level where it is first seen (1 = second level or deeper)
+  hysteresis: 0.5             # an episode ends when size falls below this share of the threshold
+  pull_traded_frac: 0.05      # "pulled" = less than this share of its size traded at its price
+  spoof_min_start_level: 2    # spoof-like: first seen at least this deep (0 = best)
+  spoof_max_life_s: 60        # ... and pulled within this time
+  iceberg_refill_min_frac: 0.5
+  iceberg_min_refills: 5
+  iceberg_min_exec_ratio: 5   # executed >= this x the displayed size
+  iceberg_cv_max: 0.10        # displayed size after each refill must be almost constant
+  iceberg_gap_s: 60           # a new run starts after this long without a trade at the price
+
+events:                       # Phase 3: event detectors (calibrated on separate synthetic days)
+  large_print_mult: 30
+  large_print_lookback: 200
+  absorb_step_s: 15
+  absorb_window_s: 120
+  absorb_min_delta_frac: 0.5
+  absorb_max_range_ticks: 6
+  absorb_min_volume_mult: 2.0
+  absorb_warmup_windows: 20
+  exhaust_bar_freq: "1min"
+  exhaust_lookback_bars: 10
+  exhaust_tol_ticks: 6
+  exhaust_peak_mult: 3.0
+  exhaust_dry_frac: 0.5
+  exhaust_warmup_bars: 15
+  trap_window_min: 10
+  trap_step_s: 60
+  trap_cluster_s: 120
+  trap_near_ticks: 10
+  trap_recovery_ticks: 30
+  trap_min_age_min: 1
+  trap_min_vol_mult: 3.0
+  trap_min_share: 0.15
+  trap_warmup_min: 15
+  flip_bar_freq: "1min"
+  flip_min_abs_pct: 0.4
+  flip_min_vol_frac: 0.5
+  flip_warmup_bars: 15
+
+eval:
+  calibration_seed_base: 500   # thresholds are tuned ONLY on these days
+  heldout_seed_base: 9000      # reported scores come ONLY from these days
+  n_calibration_days: 6
+  n_heldout_days: 20
+  episode_gap_s: 60
+  grace_min: 2.0
 
 # NSE cost model. RATES CHANGE: verify every number against the current broker charge
 # sheet and exchange/SEBI circulars before trusting any backtest. Applied from Phase 6.
