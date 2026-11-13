@@ -1,0 +1,117 @@
+"""Build docs/index.html (Phase 1 study page) from measured outputs. Run: python scripts/build_site.py
+Numbers in the accuracy table are read from docs/classifier_accuracy.csv (written by phase1_demo.py)."""
+from pathlib import Path
+
+import pandas as pd
+
+root = Path(__file__).resolve().parents[1]
+acc = pd.read_csv(root / "docs" / "classifier_accuracy.csv")
+rows = "".join(
+    f"<tr><td>{r.method}</td><td>{r.coverage:.2%}</td><td>{r.acc_classified:.2%}</td>"
+    f"<td>{r.acc_all_vol:.2%}</td></tr>" for r in acc.itertuples())
+n = int(acc.n.iloc[0])
+
+TEMPLATE = r"""<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>orderflow-engine: order flow from first principles (Phase 1)</title>
+<style>
+:root{--bg:#fafaf7;--fg:#1d1d1b;--mute:#6b6b66;--card:#fff;--line:#e3e1d8;--acc:#1d6b4f;--buy:#2e8b57;--sell:#c0392b}
+@media(prefers-color-scheme:dark){:root{--bg:#161614;--fg:#ecebe5;--mute:#9a9992;--card:#1f1f1c;--line:#34332e;--acc:#5fc79b;--buy:#5fc79b;--sell:#ef8a7d}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,Segoe UI,sans-serif}
+.wrap{display:grid;grid-template-columns:230px 1fr;max-width:1080px;margin:0 auto;gap:32px;padding:24px}
+nav{position:sticky;top:16px;align-self:start;font-size:14px}nav a{display:block;padding:4px 0;color:var(--mute);text-decoration:none}nav a:hover{color:var(--acc)}
+nav b{display:block;margin:12px 0 4px;font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+h1{font-size:28px;margin:0 0 4px}h2{font-size:21px;margin:0 0 6px}h3{font-size:14px;margin:16px 0 4px;color:var(--acc);text-transform:uppercase;letter-spacing:.05em}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px 22px;margin:18px 0}
+.sub{color:var(--mute);margin:0 0 12px}.note{border-left:3px solid var(--acc);padding:6px 12px;background:rgba(29,107,79,.07);margin:12px 0;font-size:14.5px}
+.warn{border-left-color:#b9770e;background:rgba(185,119,14,.08)}
+table{border-collapse:collapse;width:100%;font-size:14px;margin:8px 0}th,td{border-bottom:1px solid var(--line);padding:6px 8px;text-align:right}th:first-child,td:first-child{text-align:left}
+code{background:rgba(127,127,127,.15);padding:1px 5px;border-radius:4px;font-size:.9em}pre{background:rgba(127,127,127,.12);padding:10px 12px;border-radius:8px;overflow:auto;font-size:13px}
+img{max-width:100%;border:1px solid var(--line);border-radius:8px}ul{margin:4px 0 4px 20px;padding:0}
+.ladder{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
+.lad td{text-align:center;font-variant-numeric:tabular-nums}.lad .ask{color:var(--sell)}.lad .bid{color:var(--buy)}.lad tr.hit td{background:rgba(192,57,43,.18)}.lad tr.hitb td{background:rgba(46,139,87,.18)}
+input,select,button{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg)}button{background:var(--acc);color:#fff;border:0;cursor:pointer}
+@media(max-width:800px){.wrap{grid-template-columns:1fr}nav{position:static}.ladder{grid-template-columns:1fr}}
+</style></head><body><div class="wrap">
+<nav><b>Phase 1</b>
+<a href="#a1">1 Auction &amp; balance</a><a href="#a2">2 The order book</a><a href="#a3">3 Limit vs market</a><a href="#a4">4 Aggressor side</a><a href="#a5">5 Slippage (try it)</a>
+<a href="#b6">6 The tape</a><a href="#b7">7 Classifying trades</a><a href="#b8">8 OHLCV delta estimate</a><a href="#fp">Footprint demo</a>
+<b>Coming</b><a href="#coming">Phases 2 to 8</a></nav>
+<main>
+<h1>Order flow from first principles</h1>
+<p class="sub">orderflow-engine, Phase 1 study notes (concepts A and B). Companion to <code>ict-swing-engine</code>.</p>
+<div class="note warn"><b>Honesty note.</b> All example numbers on this page are <b>illustrative or from the synthetic generator</b>, not real NSE data. Nothing here has been validated on real trades yet. Anything estimated is labelled <code>_est</code>.</div>
+
+<section id="a1"><h2>1. Auction market theory</h2><p class="sub">Price advertises, time regulates, volume validates.</p>
+<h3>Definition</h3><p>A market is an auction that looks for the price where both sides are willing to trade. <b>Balance</b>: price rotates in a range, both sides trade, volume is two-sided. <b>Imbalance</b>: one side dominates and price moves to find new counterparties. <b>Initiative</b> activity pushes price away from value (buyers lifting offers at highs). <b>Responsive</b> activity pushes it back (buyers stepping in below value).</p>
+<h3>Why it matters</h3><p>It tells you what question to ask of every chart: is this move accepted (time and volume build there) or rejected (price returns fast)?</p>
+<h3>How to read it</h3><ul><li>Price moves with little volume and quick return: advertised, not validated.</li><li>Price holds and volume builds at a new level: accepted, new value.</li><li>One-sided trade (almost all volume on one aggressor side) is an imbalance; two-sided trade is balance.</li></ul>
+<h3>Common mistakes</h3><ul><li>Calling every breakout "initiative" without checking volume or time spent beyond the old range.</li><li>Treating balance as dead: most sessions are balance.</li></ul></section>
+
+<section id="a2"><h2>2. The order book (DOM, Level 2)</h2>
+<h3>Definition</h3><p>The list of resting limit orders: <b>bids</b> (buyers waiting) below, <b>asks</b> (sellers waiting) above. The <b>spread</b> is best ask minus best bid. <b>Depth</b> is the size resting at each level (NSE feeds typically give the best 5 levels; some give 20). Orders at one price fill in <b>price-time priority</b>: earlier orders first.</p>
+<h3>Why it matters</h3><p>Resting size is the liquidity price must chew through. Queue position decides whether your limit order gets filled when price only touches your level.</p>
+<h3>Common mistakes</h3><ul><li>Trusting displayed size: NSE <b>disclosed quantity</b> orders show only part of the order, so true size can be larger.</li><li>Assuming the book is the whole story: orders can be cancelled in microseconds.</li></ul>
+<div class="note">Tick size varies by instrument and price band on NSE. This repo never hard-codes it for real runs; the <code>0.05</code> in <code>config.yaml</code> is a synthetic/test fallback only.</div></section>
+
+<section id="a3"><h2>3. Limit orders vs market orders</h2>
+<p><b>Limit orders</b> are passive: they rest in the book and <i>provide</i> liquidity. <b>Market orders</b> are aggressive: they trade immediately and <i>take</i> liquidity. A trade happens only when an aggressor meets a resting order.</p>
+<h3>How to read it</h3><p>Every print has one aggressor and one passive side. "Volume" alone cannot say who was in a hurry; the aggressor side can.</p>
+<h3>Common mistakes</h3><ul><li>"Buyers and sellers are always equal, so volume is neutral." True in count of shares, false about <i>urgency</i>: that is exactly what delta measures (Phase 2).</li></ul></section>
+
+<section id="a4"><h2>4. Aggressor side</h2>
+<p>A market buy <b>lifts the offer</b> (trade at the ask, side = +1). A market sell <b>hits the bid</b> (trade at the bid, side = -1). This one label is the base of delta, CVD, footprint and imbalance.</p>
+<pre>side = +1  ->  counted in ask_vol   (buyer was aggressive)
+side = -1  ->  counted in bid_vol   (seller was aggressive)
+delta = ask_vol - bid_vol</pre>
+<div class="note">NSE's public feeds do not give the aggressor flag for every trade in a way we can rely on, so most of this repo works with <b>estimated</b> sides (section 7). Estimated outputs carry the <code>_est</code> suffix.</div></section>
+
+<section id="a5"><h2>5. Slippage and market impact (try it)</h2>
+<p class="sub">Send a market order into an illustrative ladder (tick = ₹0.05). Bigger orders walk the book and pay more.</p>
+<div class="ladder"><div><table class="lad" id="lad"><thead><tr><th>Price</th><th>Size</th><th>Side</th></tr></thead><tbody></tbody></table></div>
+<div><p><select id="side"><option value="buy">Market BUY</option><option value="sell">Market SELL</option></select>
+<input id="qty" type="number" value="1500" min="1" step="100" style="width:100px"> shares <button id="go">Send</button></p><div id="res"></div></div></div>
+<h3>Why it matters</h3><p>Average fill price = Σ(price × size) ÷ Σ size. Slippage = average fill − the price you saw. Costs in <code>config.yaml</code> include <code>slippage_ticks</code> for exactly this.</p>
+<h3>Common mistakes</h3><ul><li>Backtesting at the last price: a market order never fills at the last price for free.</li><li>Ignoring that the book refills or thins as you trade; this ladder is static.</li></ul></section>
+
+<section id="b6"><h2>6. Time &amp; Sales (the tape)</h2>
+<p>The tape is the list of trades: time, price, size (and aggressor side when known). Read for <b>large prints</b>, <b>bursts</b> (many trades in seconds) and <b>speed</b>.</p>
+<pre>ts                    price    qty  side_true  bid      ask
+2026-01-05 09:15:03   1000.05   47     +1      1000.00  1000.05   <- illustrative row</pre>
+<h3>Common mistakes</h3><ul><li>Reading one big print as "an institution". It may be a block crossed between two parties or one order split on both sides.</li></ul></section>
+
+<section id="b7"><h2>7. Classifying trades without exchange flags</h2>
+<h3>The three rules (all causal: only past and present data)</h3>
+<ul><li><b>Tick rule:</b> price up vs previous trade = buy, down = sell, unchanged = copy the last direction.</li><li><b>Quote rule:</b> at or above the ask = buy, at or below the bid = sell, inside the spread compare to the midpoint, exactly mid = unclassified.</li><li><b>Lee–Ready:</b> quote rule first, tick rule for what it cannot decide.</li></ul>
+<h3>Measured error on the synthetic day (__N__ trades, seed 42)</h3>
+<table><thead><tr><th>method</th><th>coverage</th><th>accuracy (labelled)</th><th>accuracy (volume-weighted)</th></tr></thead><tbody>__ROWS__</tbody></table>
+<div class="note warn">This is a toy generator: trades always print exactly at bid or ask, and 15% of attached quotes are stale. Real NSE error rates must be measured on real recorded ticks (Phase 5). The ordering (quote rule beats tick rule) is expected; the exact figures are not transferable.</div>
+<h3>Common mistakes</h3><ul><li>Treating estimated delta as exact. A 1% label error is small on one trade but can flip the sign of a quiet bar's delta.</li><li>Using the quote of <i>after</i> the trade: that is lookahead. The tests check that classifying a prefix gives the same labels as classifying the whole day.</li></ul></section>
+
+<section id="b8"><h2>8. Bar-level estimate from OHLCV</h2>
+<p>When only candles exist (e.g. Yahoo): <code>delta_est = volume × (2·close − high − low) / (high − low)</code>. It assumes volume splits by where the close sits in the bar's range.</p>
+<h3>Why it is crude</h3><ul><li>A bar that dips then closes at the high gets "all buying" even if sellers dominated the dip.</li><li>It cannot see inside the bar, so absorption (heavy volume, no progress) is invisible: range is small, so the ratio is unstable.</li><li>Zero-range bars divide by zero and must be skipped.</li></ul>
+<div class="note">Use it only as a labelled <code>delta_est</code>. This is the free-data fallback, not the real thing.</div></section>
+
+<section id="fp"><h2>Footprint demo (synthetic, labelled sweep)</h2>
+<p>Each cell is <code>bid × ask</code> volume at that price, 5-minute bars, true aggressor side from the generator. Black box = highest-volume row.</p>
+<img src="img/footprint_synthetic_sweep.png" alt="Footprint chart of a synthetic sweep reversal">
+<h3>How to read it</h3><ul><li><b>12:45 bar:</b> sellers aggress at every price on the way down (red cells, Δ strongly negative).</li><li><b>12:50 bar:</b> at the low, a huge bid-side volume and no further price progress: <b>absorption</b>, passive buyers soak up the selling.</li><li><b>12:55 bar:</b> buyers take over and the price returns up: the reversal.</li></ul>
+<p>This is a planted event in synthetic data, so detecting it proves the machinery, not that real markets behave this way.</p></section>
+
+<section id="coming"><h2>Coming next</h2><p>Phase 2: delta, CVD and divergence, footprint analytics (POC, value area, imbalances), volume profile, TPO, VWAP. Then book analytics, EOD swing flow, live recorder, setups and backtests with honest results, ICT bridge, Pine indicator.</p></section>
+</main></div>
+<script>
+const book=[[100.20,1200,'a'],[100.15,800,'a'],[100.10,500,'a'],[100.05,300,'a'],[100.00,400,'b'],[99.95,600,'b'],[99.90,900,'b'],[99.85,1300,'b']];
+const tb=document.querySelector('#lad tbody');
+function draw(hit){tb.innerHTML=book.map((r,i)=>`<tr class="${hit&&hit.has(i)?(r[2]=='a'?'hit':'hitb'):''}"><td class="${r[2]=='a'?'ask':'bid'}">${r[0].toFixed(2)}</td><td>${r[1]}</td><td>${r[2]=='a'?'ask':'bid'}</td></tr>`).join('')}
+draw();
+document.getElementById('go').onclick=()=>{
+  const side=document.getElementById('side').value,q0=+document.getElementById('qty').value;let q=q0,cost=0,filled=0;const hit=new Set();
+  const lv=side=='buy'?[3,2,1,0]:[4,5,6,7];
+  for(const i of lv){if(q<=0)break;const t=Math.min(q,book[i][1]);cost+=t*book[i][0];filled+=t;q-=t;hit.add(i)}
+  draw(hit);const best=side=='buy'?100.05:100.00,avg=cost/filled,slip=Math.abs(avg-best);
+  document.getElementById('res').innerHTML=`Filled <b>${filled}</b> of ${q0}${q>0?` (<span style="color:var(--sell)">${q} unfilled: book exhausted</span>)`:''}<br>Average price <b>${avg.toFixed(4)}</b><br>Slippage vs best ${side=='buy'?'ask':'bid'} (${best.toFixed(2)}): <b>₹${slip.toFixed(4)}</b> = ${(slip/0.05).toFixed(2)} ticks<br>Levels used: ${hit.size}`};
+</script></body></html>"""
+(root / "docs" / "index.html").write_text(TEMPLATE.replace("__ROWS__", rows).replace("__N__", f"{n:,}"), encoding="utf-8")
+print("wrote docs/index.html")
