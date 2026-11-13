@@ -1,0 +1,11 @@
+{
+ "entries": 3080,
+ "difference": {
+  "confirm_minus_reject": 0.14413987004115975,
+  "ci95": [
+   -0.2360773273488543,
+   0.5088641758329308
+  ],
+  "excludes_zero": false
+ }
+}

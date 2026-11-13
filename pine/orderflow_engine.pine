@@ -1,0 +1,77 @@
+//@version=6
+// Order Flow Engine (ESTIMATED, from OHLCV only) - companion to github.com/RakeshDoreswamy/orderflow-engine
+// Pine on standard feeds has no aggressor side, so every "delta" here is an ESTIMATE from where the bar closed in its range.
+// No repaint: events are evaluated and drawn only on CLOSED bars. Education only, not financial advice.
+indicator("Order Flow Engine (estimated)", "OF Engine (est)", overlay = true, max_labels_count = 300)
+
+string G1 = "Baselines (mirror config.yaml eod.*, previous bars only)"
+int   volLen  = input.int(20, "Volume baseline bars", minval = 5, group = G1, tooltip = "eod.vol_lookback")
+int   atrLen  = input.int(14, "ATR bars", minval = 2, group = G1, tooltip = "eod.atr_lookback")
+int   posLen  = input.int(20, "Prior range bars", minval = 5, group = G1, tooltip = "eod.pos_lookback")
+string G2 = "Effort without result"
+float effVz   = input.float(1.0, "Volume z-score at least", step = 0.1, group = G2, tooltip = "eod.effort_vol_z")
+float effRng  = input.float(0.7, "Range at most x prior ATR", step = 0.05, group = G2, tooltip = "eod.effort_range_atr")
+float posLow  = input.float(0.35, "Near prior low if position <=", step = 0.05, group = G2, tooltip = "eod.pos_low_max")
+float posHigh = input.float(0.65, "Near prior high if position >=", step = 0.05, group = G2, tooltip = "eod.pos_high_min")
+string G3 = "CVD divergence (estimated)"
+int   pvL = input.int(3, "Swing bars left", minval = 1, group = G3, tooltip = "delta.swing_left")
+int   pvR = input.int(3, "Swing bars right (confirmation delay)", minval = 1, group = G3, tooltip = "delta.swing_right")
+bool  showDiv = input.bool(true, "Show divergences", group = G3)
+string G4 = "VWAP"
+bool  showVwap = input.bool(true, "Session VWAP with bands", group = G4)
+float bandMult = input.float(1.0, "Band multiplier", minval = 0.1, step = 0.1, group = G4)
+
+// ---- estimated delta and session CVD (resets each session) ----
+float rng   = high - low
+float clv   = rng > 0 ? (2 * close - high - low) / rng : na
+float dEst  = na(clv) ? 0.0 : volume * clv
+var float cvd = 0.0
+cvd := timeframe.change("D") ? dEst : cvd + dEst
+
+// ---- causal baselines: every statistic uses PREVIOUS bars only ----
+float lv     = math.log(math.max(volume, 1.0))
+float volZ   = (lv - ta.sma(lv[1], volLen)) / ta.stdev(lv[1], volLen)
+float atrPri = ta.sma(ta.tr[1], atrLen)
+float rngAtr = rng / atrPri
+float lo20   = ta.lowest(low[1], posLen)
+float hi20   = ta.highest(high[1], posLen)
+float posPri = hi20 > lo20 ? (close - lo20) / (hi20 - lo20) : na
+
+bool effort  = barstate.isconfirmed and volZ >= effVz and rngAtr <= effRng
+bool effLow  = effort and posPri <= posLow
+bool effHigh = effort and posPri >= posHigh
+plotshape(effLow,  "Effort w/o result near low (est)",  shape.triangleup,   location.belowbar, color.new(#1f9d6b, 0), size = size.tiny, text = "abs")
+plotshape(effHigh, "Effort w/o result near high (est)", shape.triangledown, location.abovebar, color.new(#d1453b, 0), size = size.tiny, text = "abs")
+
+// ---- CVD divergence at confirmed swings (drawn on the CONFIRMATION bar, never earlier) ----
+float ph = ta.pivothigh(high, pvL, pvR)
+float pl = ta.pivotlow(low, pvL, pvR)
+var float lastHiP = na
+var float lastHiC = na
+var float lastLoP = na
+var float lastLoC = na
+if barstate.isconfirmed and not na(ph)
+    float c = cvd[pvR]
+    if showDiv and not na(lastHiP) and ph > lastHiP and c < lastHiC
+        label.new(bar_index, high, "bearish CVD div (est)", style = label.style_label_down, color = color.new(#d1453b, 15), textcolor = color.white, size = size.tiny)
+    lastHiP := ph
+    lastHiC := c
+if barstate.isconfirmed and not na(pl)
+    float c = cvd[pvR]
+    if showDiv and not na(lastLoP) and pl < lastLoP and c > lastLoC
+        label.new(bar_index, low, "bullish CVD div (est)", style = label.style_label_up, color = color.new(#1f9d6b, 15), textcolor = color.white, size = size.tiny)
+    lastLoP := pl
+    lastLoC := c
+
+// ---- session VWAP + bands (standard Pine function) ----
+[vw, vwUp, vwDn] = ta.vwap(hlc3, timeframe.change("D"), bandMult)
+plot(showVwap ? vw   : na, "Session VWAP", color = color.new(#8e44ad, 0), linewidth = 2)
+plot(showVwap ? vwUp : na, "VWAP upper",   color = color.new(#8e44ad, 60))
+plot(showVwap ? vwDn : na, "VWAP lower",   color = color.new(#8e44ad, 60))
+
+// ---- data window + alerts ----
+plot(dEst, "delta est", display = display.data_window)
+plot(cvd,  "CVD est (session)", display = display.data_window)
+plot(volZ, "volume z-score", display = display.data_window)
+alertcondition(effLow,  "Effort without result near low (estimated)",  "Effort without result near a prior low on {{ticker}}")
+alertcondition(effHigh, "Effort without result near high (estimated)", "Effort without result near a prior high on {{ticker}}")

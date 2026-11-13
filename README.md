@@ -67,7 +67,7 @@ Open `docs/index.html` for the study page (concepts 1-27, each with definition, 
 
 ## Roadmap
 3 book + events (done) | 4 EOD providers + swingflow (done) |
-5 live recorder core (done; broker adapter not written) | 6 setups + backtest (done, synthetic only) | 7 ICT bridge, Pine, Actions | 8 learning site.
+5 live recorder core (done; broker adapter not written) | 6 setups + backtest (done, synthetic only) | 7 ICT bridge, Pine, Actions (done) | 8 learning site.
 
 ## Setup
 ```
@@ -226,3 +226,40 @@ days (Phase 5) to say anything about NSE, and results depend on how acceptance i
 | [1.0, inf) | up | 3 | 0 | 0.00 | 0.00-0.56 |
 
 Raw numbers: `docs/phase6_*.csv`, held-out trades in `docs/phase6_heldout_trades.csv`.
+
+## Phase 7 results: ICT bridge, Pine indicator, GitHub Actions
+
+**Bridge** (`orderflow/ict_bridge.py`, CLI `scripts/bridge_scan.py`). Reads the scanner's `scan.csv` from
+`ict-swing-engine` (long-side 45-minute OTE entries; a `side` column is honoured) and returns **confirm / neutral / reject /
+no_data** per entry as a transparent score, with every piece of evidence listed. Two sources: daily bars (`verdict_eod`:
+effort without result near the entry's side of the range, flow around the daily swing near the sweep, net estimated delta
+over 5 days) and recorded ticks (`verdict_intraday`: absorption, exhaustion and trapped-trader events since the sweep).
+Everything is cut off at `as_of` inside the function (tested with and without future data), missing or short data
+gives `no_data`, and shorts mirror longs. Thresholds are in `config.yaml` under `bridge:`.
+
+**Does it separate good entries from bad ones? Unknown.** The plumbing was checked end to end on 40 toy random-walk series
+(3080 entries, forward 5-day outcome in ATR units measured after the as_of day). With no edge present the
+confirm-minus-reject difference should straddle zero, and it does:
+
+| verdict | n | mean_R | ci95 | small_sample |
+|---|---|---|---|---|
+| confirm | 148 | 0.00 | -0.26 to 0.27 | False |
+| neutral | 2804 | 0.02 | -0.04 to 0.08 | False |
+| reject | 128 | -0.14 | -0.40 to 0.13 | False |
+| no_data | 0 | nan | nan to nan | True |
+
+Confirm minus reject = +0.14 R, 95% CI -0.24 to +0.51 (excludes zero: False).
+`orderflow/bridge_eval.py::compare_outcomes` does the same comparison on real outcomes; tests show it flags a planted
+effect and not a null. **Run it on your ICT journal/backtest outcomes before trusting any verdict.** The bridge has never seen a real
+ICT entry's outcome, and no claim is made that it improves ICT results. Note the bridge lives in this repo and only reads
+`scan.csv`; nothing was changed in `ict-swing-engine`.
+
+**Pine v6** (`pine/orderflow_engine.pine`). Estimated delta and session CVD from where each bar closes in its range, volume
+z-score, effort-without-result markers, CVD divergence labels at confirmed swings (drawn on the confirmation bar), and session
+VWAP with bands. Pine on standard feeds has no aggressor side, so everything is labelled estimated, and delivery % is not
+available in Pine. It compiled on TradingView's server with 0 errors and 0 warnings; I have not looked at it on a live chart, and
+no repaint was checked only by construction (closed-bar logic), not by replay.
+
+**GitHub Actions** (`.github/workflows/`): `tests.yml` (pytest on push and PR, Python 3.11), `pages.yml` (publishes `docs/` once you
+set Settings -> Pages -> Source to "GitHub Actions"), `reproduce.yml` (manual: re-runs every evaluation script and uploads
+the tables). The YAML parses, but none of the workflows has run yet.

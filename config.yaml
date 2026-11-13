@@ -273,3 +273,14 @@ rules:
   claimed_probability: 0.80
   toy_gap_pct: 0.4            # toy only: random overnight gap applied to synthetic days
   gap_buckets_pct: [0.0, 0.2, 0.5, 1.0]
+
+# ---- Phase 7: ICT bridge (order-flow evidence for an ict-swing-engine entry) ------------------------------
+bridge:
+  min_history_days: 40        # fewer daily bars than this up to as_of -> verdict "no_data"
+  lookback_days: 15           # an effort / swing-flow event counts if it falls in this many days before as_of
+  swing_match_days: 5         # the swing low/high must lie within this many days of the sweep date
+  flow_days: 5                # days used for the net estimated-delta ratio
+  flow_ratio_min: 0.15        # |sum(delta_est) / sum(volume)| at least this counts as support or contradiction
+  confirm_min_score: 2        # score >= this -> confirm
+  reject_min_score: 2         # score <= -this -> reject
+  intraday_pad_min: 30        # intraday evidence window starts this long before the sweep
